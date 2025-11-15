@@ -18,7 +18,7 @@ class IndexingPipeline:
     def __init__(self):
         self.graph_manager = GraphManager()
         self.llm_service = LLMService()
-        self.hnsw_service = HNSWService()
+        self.hnsw_service = None  # Will be initialized when needed
         
         # Use enhanced document loader with LlamaParse integration
         if Config.USE_LLAMAPARSE:
@@ -34,6 +34,21 @@ class IndexingPipeline:
                 chunk_size=Config.CHUNK_SIZE,
                 chunk_overlap=Config.CHUNK_OVERLAP
             )
+    
+    def _get_hnsw_service(self):
+        """Get or create HNSW service instance."""
+        if self.hnsw_service is None:
+            self.hnsw_service = HNSWService()
+            # Try to load existing index
+            try:
+                loaded = self.hnsw_service.load_index()
+                if loaded:
+                    logger.info(f"Loaded existing HNSW index with {self.hnsw_service.current_count} vectors")
+                else:
+                    logger.info("Created new empty HNSW index")
+            except Exception as e:
+                logger.warning(f"Could not load HNSW index: {e}")
+        return self.hnsw_service
         
     def index_document(self, file_path: str) -> Dict[str, Any]:
         """Index a document through the complete pipeline."""
@@ -453,6 +468,10 @@ class IndexingPipeline:
         """Phase III: Generate embeddings for all nodes."""
         logger.info("Starting Phase III: Embedding Generation")
         
+        # Get HNSW service instance
+        hnsw_service = self._get_hnsw_service()
+        logger.info(f"HNSW service initialized: {hnsw_service is not None}")
+        
         try:
             # Get all nodes that need embeddings
             all_nodes = []
@@ -498,7 +517,7 @@ class IndexingPipeline:
                             'type': node.type.value,
                             'content': node.content[:200]  # Store first 200 chars for metadata
                         }
-                        success = self.hnsw_service.add_node_embedding(
+                        success = hnsw_service.add_node_embedding(
                             node_id=node_id,
                             embedding=embedding,
                             metadata=metadata
@@ -513,7 +532,7 @@ class IndexingPipeline:
             
             # Save HNSW index to disk
             try:
-                hnsw_saved = self.hnsw_service.save_index()
+                hnsw_saved = hnsw_service.save_index()
                 logger.info(f"HNSW index saved: {hnsw_saved}")
             except Exception as e:
                 logger.warning(f"Failed to save HNSW index: {e}")

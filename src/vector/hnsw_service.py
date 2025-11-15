@@ -291,9 +291,12 @@ class HNSWService:
             return True
         return False
     
-    def save_index(self, filepath: str) -> bool:
+    def save_index(self, filepath: str = None) -> bool:
         """Save HNSW index and metadata to disk."""
         try:
+            if filepath is None:
+                filepath = os.path.join(Config.DATA_DIR, "processed", "hnsw_index")
+            
             # Create directory if needed
             os.makedirs(os.path.dirname(filepath), exist_ok=True)
             
@@ -325,9 +328,11 @@ class HNSWService:
             logger.error(f"Error saving HNSW index: {e}")
             return False
     
-    def load_index(self, filepath: str) -> bool:
+    def load_index(self, filepath: str = None) -> bool:
         """Load HNSW index and metadata from disk."""
         try:
+            if filepath is None:
+                filepath = os.path.join(Config.DATA_DIR, "processed", "hnsw_index")
             index_file = f"{filepath}.hnsw"
             metadata_file = f"{filepath}.metadata"
             
@@ -341,7 +346,15 @@ class HNSWService:
             
             # Validate metadata
             if metadata['dimension'] != self.dimension:
-                logger.error(f"Dimension mismatch: {metadata['dimension']} != {self.dimension}")
+                logger.warning(f"Dimension mismatch: {metadata['dimension']} != {self.dimension}")
+                logger.info(f"Clearing old index and creating new one with dimension {self.dimension}")
+                # Delete old index files
+                try:
+                    os.remove(index_file)
+                    os.remove(metadata_file)
+                    logger.info("Old HNSW index files deleted")
+                except Exception as e:
+                    logger.warning(f"Could not delete old index files: {e}")
                 return False
             
             # Load HNSW index

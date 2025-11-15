@@ -115,7 +115,9 @@ def upload_and_index_document():
         
         try:
             # Index the uploaded document
+            logger.info(f"Starting document indexing for: {file.filename}")
             result = indexing_pipeline.index_document(file_path)
+            logger.info(f"Indexing result: {result}")
             
             if result['success']:
                 # Save the graph
