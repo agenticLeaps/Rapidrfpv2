@@ -340,12 +340,8 @@ class GraphVisualizer:
                 if not node:
                     continue
                 
-                # Find community
-                community_id = None
-                for comm_id, nodes in communities.items():
-                    if node_id in nodes:
-                        community_id = comm_id
-                        break
+                # Get community ID for this node
+                community_id = communities.get(node_id, None)
                 
                 # Get community color
                 if community_id is not None:

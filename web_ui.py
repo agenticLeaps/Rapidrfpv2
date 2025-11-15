@@ -160,14 +160,18 @@ def main():
                     with st.spinner("Creating visualization..."):
                         viz_result = api.create_visualization()
                         
-                        if 'error' not in viz_result:
+                        if 'error' not in viz_result and viz_result.get('success', False):
                             st.success("✅ Visualization created!")
                             filename = viz_result.get('output_filename', 'graph_visualization.html')
                             st.markdown(f"""
                             **📥 [Open Visualization]({st.session_state.api_base_url}/api/visualization/serve/{filename})**
                             """)
                         else:
-                            st.error(f"❌ Error: {viz_result['error']}")
+                            error_msg = viz_result.get('error', 'Unknown error occurred')
+                            st.error(f"❌ Error creating visualization: {error_msg}")
+                            if 'details' in viz_result:
+                                with st.expander("Error Details"):
+                                    st.code(viz_result['details'])
             else:
                 st.info("Upload a document first to generate visualization")
         else:
