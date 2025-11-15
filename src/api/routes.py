@@ -249,6 +249,69 @@ def get_node(node_id: str):
         logger.error(f"Error in get_node: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/debug/knowledge-base', methods=['GET'])
+def debug_knowledge_base():
+    """Debug endpoint to check knowledge base status."""
+    try:
+        # Get basic graph stats
+        graph = indexing_pipeline.graph_manager.graph
+        total_nodes = graph.number_of_nodes()
+        total_edges = graph.number_of_edges()
+        
+        # Get node type counts
+        node_types = {}
+        for node_id in graph.nodes():
+            node = indexing_pipeline.graph_manager.get_node(node_id)
+            if node:
+                node_type = node.type.value
+                node_types[node_type] = node_types.get(node_type, 0) + 1
+        
+        # Get sample nodes for each type
+        samples = {}
+        for node_type in ['T', 'N', 'R', 'A', 'H']:
+            try:
+                type_nodes = indexing_pipeline.graph_manager.get_nodes_by_type(NodeType(node_type))
+                if type_nodes:
+                    # Show first 3 nodes of each type
+                    samples[node_type] = []
+                    for node in type_nodes[:3]:
+                        samples[node_type].append({
+                            'id': node.id,
+                            'content_preview': node.content[:100] + '...' if len(node.content) > 100 else node.content
+                        })
+            except ValueError:
+                # Skip invalid node types
+                pass
+        
+        # Check HNSW status
+        hnsw_status = "Not initialized"
+        try:
+            hnsw = _initialize_hnsw_service()
+            if hasattr(hnsw, 'index') and hnsw.index is not None:
+                hnsw_status = f"Initialized with {hnsw.index.get_current_count()} vectors"
+            else:
+                hnsw_status = "Initialized but no vectors loaded"
+        except Exception as e:
+            hnsw_status = f"Error: {str(e)}"
+        
+        return jsonify({
+            'success': True,
+            'graph_stats': {
+                'total_nodes': total_nodes,
+                'total_edges': total_edges,
+                'node_type_counts': node_types
+            },
+            'hnsw_status': hnsw_status,
+            'sample_nodes': samples
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in debug_knowledge_base: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/search/entities', methods=['POST'])
 def search_entities():
     """Search for entities by name."""
@@ -844,6 +907,16 @@ def answer_generation_endpoint():
             high_level_nodes_limit=high_level_limit
         )
         
+        # Debug: Log retrieval results
+        logger.info(f"Query: {query}")
+        logger.info(f"Retrieved {len(retrieval_result.final_nodes)} final nodes")
+        logger.info(f"HNSW results: {len(retrieval_result.hnsw_results)}")
+        logger.info(f"Exact entity matches: {len(retrieval_result.accurate_results)}")
+        logger.info(f"PPR results: {len(retrieval_result.ppr_results)}")
+        
+        if not retrieval_result.final_nodes:
+            logger.warning("No nodes retrieved for query - this might indicate indexing issues")
+        
         # Build structured context from retrieved nodes
         context_parts = []
         node_details = []
@@ -889,7 +962,12 @@ def answer_generation_endpoint():
                 all_content.extend(contents)
             context_parts = all_content
         
-        retrieved_info = "\n".join(context_parts)
+        retrieved_info = "\n".join(context_parts).strip()
+        
+        # Check if we have any retrieved information
+        if not retrieved_info or len(retrieved_info) < 10:
+            logger.warning(f"Very little or no information retrieved for query: {query}")
+            retrieved_info = "No relevant information found in the knowledge base."
         
         # Generate answer using LLM
         from ..llm.llm_service import LLMService

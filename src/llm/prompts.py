@@ -113,14 +113,21 @@ Expected format: [source_entity, relationship_type, target_entity]
 
 # Answer Generation Prompt (for query answering)
 ANSWER_GENERATION_PROMPT = """
-Based on the retrieved information below, please provide a comprehensive and accurate answer to the user's question. Use the information provided to construct a well-structured response that directly addresses the query.
+You are a helpful AI assistant that ONLY uses the provided retrieved information to answer questions. Do NOT use any external knowledge or information not explicitly provided below.
+
+IMPORTANT INSTRUCTIONS:
+1. ONLY use information from the "Retrieved Information" section below
+2. If the retrieved information doesn't contain enough detail to answer the question, say "I don't have enough information in the provided context to answer this question completely."
+3. Do NOT make up or infer information that is not explicitly stated in the retrieved information
+4. Be accurate and cite specific details from the provided information
+5. If asked about something not covered in the retrieved information, clearly state that it's not available in the provided context
 
 Retrieved Information:
 {info}
 
 User Question: {query}
 
-Please provide a detailed answer based on the retrieved information:
+Based ONLY on the retrieved information above, please provide your answer:
 """
 
 # JSON Format Templates

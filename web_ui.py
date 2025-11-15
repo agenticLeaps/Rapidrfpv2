@@ -90,6 +90,10 @@ class RapidRFPAPI:
     def get_nodes_by_type(self, node_type: str) -> Dict:
         """Get nodes by type."""
         return self._make_request('GET', f'/api/graph/nodes/{node_type}')
+    
+    def debug_knowledge_base(self) -> Dict:
+        """Debug knowledge base status."""
+        return self._make_request('GET', '/api/debug/knowledge-base')
 
 def main():
     """Main application function."""
@@ -163,9 +167,11 @@ def main():
                         if 'error' not in viz_result and viz_result.get('success', False):
                             st.success("✅ Visualization created!")
                             filename = viz_result.get('output_filename', 'graph_visualization.html')
+                            viz_url = f"{st.session_state.api_base_url}/api/visualization/serve/{filename}"
                             st.markdown(f"""
-                            **📥 [Open Visualization]({st.session_state.api_base_url}/api/visualization/serve/{filename})**
-                            """)
+                            **📥 <a href="{viz_url}" target="_blank">Open Visualization in New Tab</a>**
+                            """, unsafe_allow_html=True)
+                            st.info(f"📋 Or copy this URL: {viz_url}")
                         else:
                             error_msg = viz_result.get('error', 'Unknown error occurred')
                             st.error(f"❌ Error creating visualization: {error_msg}")
@@ -320,6 +326,47 @@ def main():
                 
                 if len(nodes_data.get('nodes', [])) > 10:
                     st.info(f"Showing first 10 of {nodes_data.get('count', 0)} nodes")
+    
+    # Debug Section
+    st.markdown("---")
+    st.subheader("🐛 Debug Information")
+    if st.button("🔍 Check Knowledge Base Status", type="secondary"):
+        with st.spinner("Checking knowledge base..."):
+            debug_result = api.debug_knowledge_base()
+            
+            if debug_result.get('success'):
+                data = debug_result
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("**Graph Statistics:**")
+                    graph_stats = data.get('graph_stats', {})
+                    st.write(f"• Total Nodes: {graph_stats.get('total_nodes', 0)}")
+                    st.write(f"• Total Edges: {graph_stats.get('total_edges', 0)}")
+                    
+                    node_counts = graph_stats.get('node_type_counts', {})
+                    if node_counts:
+                        st.markdown("**Node Types:**")
+                        for node_type, count in node_counts.items():
+                            st.write(f"• {node_type}: {count}")
+                
+                with col2:
+                    st.markdown("**HNSW Status:**")
+                    st.write(data.get('hnsw_status', 'Unknown'))
+                    
+                    # Show sample nodes
+                    samples = data.get('sample_nodes', {})
+                    if samples:
+                        st.markdown("**Sample Nodes:**")
+                        for node_type, nodes in samples.items():
+                            if nodes:
+                                st.write(f"**{node_type} nodes:** {len(nodes)} samples")
+                                for i, node in enumerate(nodes):
+                                    st.write(f"  {i+1}. {node['content_preview']}")
+                
+            else:
+                st.error(f"Debug error: {debug_result.get('error', 'Unknown')}")
 
 if __name__ == "__main__":
     main()
