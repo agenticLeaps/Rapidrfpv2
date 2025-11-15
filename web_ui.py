@@ -22,7 +22,11 @@ if "messages" not in st.session_state:
 if "graph_stats" not in st.session_state:
     st.session_state.graph_stats = {}
 if "api_base_url" not in st.session_state:
-    st.session_state.api_base_url = "http://localhost:5001"
+    # Use Streamlit secrets for API URL, fallback to localhost for development
+    try:
+        st.session_state.api_base_url = st.secrets.get("API_BASE_URL", "http://localhost:5001")
+    except:
+        st.session_state.api_base_url = "http://localhost:5001"
 
 class RapidRFPAPI:
     """API client for RapidRFP RAG system."""
