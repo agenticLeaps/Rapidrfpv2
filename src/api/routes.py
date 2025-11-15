@@ -750,7 +750,18 @@ def _initialize_hnsw_service():
     if hnsw_service is None:
         try:
             hnsw_service = HNSWService()
-            logger.info("HNSW service initialized")
+            
+            # Try to load existing index
+            try:
+                loaded = hnsw_service.load_index()
+                if loaded:
+                    logger.info(f"HNSW service initialized and index loaded with {hnsw_service.current_count} vectors")
+                else:
+                    logger.info("HNSW service initialized with empty index")
+            except Exception as load_error:
+                logger.warning(f"Could not load existing HNSW index: {load_error}")
+                logger.info("HNSW service initialized with empty index")
+                
         except Exception as e:
             logger.error(f"Failed to initialize HNSW service: {e}")
             raise

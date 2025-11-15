@@ -9,6 +9,7 @@ from ..graph.node_types import Node, Edge, NodeType
 from ..llm.llm_service import LLMService
 from .document_loader import DocumentLoader, ProcessedDocument, DocumentChunk
 from .llamaparse_service import EnhancedDocumentLoader
+from ..vector.hnsw_service import HNSWService
 from ..config.settings import Config
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,7 @@ class IndexingPipeline:
     def __init__(self):
         self.graph_manager = GraphManager()
         self.llm_service = LLMService()
+        self.hnsw_service = HNSWService()
         
         # Use enhanced document loader with LlamaParse integration
         if Config.USE_LLAMAPARSE:
@@ -484,21 +486,44 @@ class IndexingPipeline:
                     logger.error(f"Embedding count mismatch: {len(embeddings)} != {len(batch_texts)}")
                     continue
                 
-                # Update nodes with embeddings
+                # Update nodes with embeddings and add to HNSW index
                 for node_id, embedding in zip(batch_node_ids, embeddings):
                     node = self.graph_manager.get_node(node_id)
                     if node:
                         node.embeddings = embedding
                         self.graph_manager.update_node(node)
-                        embeddings_generated += 1
+                        
+                        # Add to HNSW index for vector search
+                        metadata = {
+                            'type': node.type.value,
+                            'content': node.content[:200]  # Store first 200 chars for metadata
+                        }
+                        success = self.hnsw_service.add_node_embedding(
+                            node_id=node_id,
+                            embedding=embedding,
+                            metadata=metadata
+                        )
+                        
+                        if success:
+                            embeddings_generated += 1
+                        else:
+                            logger.warning(f"Failed to add node {node_id} to HNSW index")
                 
                 logger.info(f"Generated embeddings for batch {i//batch_size + 1}/{(len(texts) + batch_size - 1)//batch_size}")
             
-            logger.info(f"Phase III completed: {embeddings_generated} embeddings generated")
+            # Save HNSW index to disk
+            try:
+                hnsw_saved = self.hnsw_service.save_index()
+                logger.info(f"HNSW index saved: {hnsw_saved}")
+            except Exception as e:
+                logger.warning(f"Failed to save HNSW index: {e}")
+            
+            logger.info(f"Phase III completed: {embeddings_generated} embeddings generated and indexed")
             
             return {
                 'success': True,
-                'embeddings_generated': embeddings_generated
+                'embeddings_generated': embeddings_generated,
+                'hnsw_indexed': embeddings_generated
             }
             
         except Exception as e:
