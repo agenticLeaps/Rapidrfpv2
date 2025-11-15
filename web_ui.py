@@ -142,6 +142,14 @@ class RapidRFPAPI:
     def debug_knowledge_base(self) -> Dict:
         """Debug knowledge base status."""
         return self._make_request('GET', '/api/debug/knowledge-base')
+    
+    def clear_session(self) -> Dict:
+        """Clear all session data from backend."""
+        return self._make_request('POST', '/api/session/clear')
+    
+    def get_session_stats(self) -> Dict:
+        """Get session statistics."""
+        return self._make_request('GET', '/api/session/stats')
 
 def main():
     """Main application function."""
@@ -169,7 +177,17 @@ def main():
                 st.rerun()
         with col2_2:
             if st.button("🗑️ Clear Data", help="Clear uploaded documents and cache"):
+                # Clear backend session data
+                api = RapidRFPAPI(st.session_state.api_base_url, st.session_state.session_id)
+                backend_clear_result = api.clear_session()
+                
+                # Clear frontend session data
                 clear_session_data()
+                
+                if 'error' in backend_clear_result:
+                    st.error(f"Backend clear failed: {backend_clear_result['error']}")
+                else:
+                    st.success("✅ Session data cleared!")
                 st.rerun()
     
     # API Status Check with session isolation

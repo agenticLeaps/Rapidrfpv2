@@ -15,19 +15,35 @@ from ..visualization.graph_visualizer import GraphVisualizer, VisualizationConfi
 from ..graph.graph_manager import GraphManager
 from ..graph.node_types import NodeType
 from ..config.settings import Config
+from .session_manager import session_manager
 
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)
 
-# Global instances
-indexing_pipeline = IndexingPipeline()
-incremental_pipeline = IncrementalIndexingPipeline()
-document_loader = DocumentLoader()
-advanced_search = None  # Initialized when graph is available
-hnsw_service = None  # Initialized when needed
-graph_visualizer = None  # Initialized when needed
+def get_session_id(request) -> str:
+    """Extract session ID from request headers or form data."""
+    # Try header first
+    session_id = request.headers.get('X-Session-ID')
+    
+    # Try form data (for file uploads)
+    if not session_id and hasattr(request, 'form'):
+        session_id = request.form.get('session_id')
+    
+    # Try JSON data
+    if not session_id and request.is_json:
+        data = request.get_json() or {}
+        session_id = data.get('session_id')
+    
+    # Try query parameters
+    if not session_id:
+        session_id = request.args.get('session_id')
+    
+    if not session_id:
+        raise ValueError("Session ID is required. Please include X-Session-ID header or session_id parameter.")
+    
+    return session_id
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -77,8 +93,12 @@ def index_document():
 
 @app.route('/api/upload/document', methods=['POST'])
 def upload_and_index_document():
-    """Upload and index a document file."""
+    """Upload and index a document file with session isolation."""
     try:
+        # Get session ID
+        session_id = get_session_id(request)
+        session_data = session_manager.get_or_create_session(session_id)
+        
         # Check if file is in request
         if 'file' not in request.files:
             return jsonify({
@@ -101,8 +121,8 @@ def upload_and_index_document():
                 'error': f'Unsupported file format: {file_ext}. Supported: {list(allowed_extensions)}'
             }), 400
         
-        # Save uploaded file to temporary location
-        upload_dir = "data/raw"
+        # Save uploaded file to session-specific directory
+        upload_dir = os.path.join(session_data.data_dir, "raw")
         os.makedirs(upload_dir, exist_ok=True)
         
         # Generate unique filename
@@ -111,20 +131,39 @@ def upload_and_index_document():
         file_path = os.path.join(upload_dir, unique_filename)
         
         file.save(file_path)
-        logger.info(f"File uploaded to {file_path}")
+        logger.info(f"File uploaded to session {session_id}: {file_path}")
         
         try:
-            # Index the uploaded document
-            logger.info(f"Starting document indexing for: {file.filename}")
-            result = indexing_pipeline.index_document(file_path)
-            logger.info(f"Indexing result: {result}")
+            # Index the uploaded document using session-specific pipeline
+            logger.info(f"Starting document indexing for session {session_id}: {file.filename}")
+            result = session_data.indexing_pipeline.index_document(file_path)
+            logger.info(f"Indexing result for session {session_id}: {result}")
             
             if result['success']:
-                # Save the graph
-                save_success = indexing_pipeline.save_graph()
+                # Save the session-specific graph
+                save_success = session_data.indexing_pipeline.save_graph()
                 result['graph_saved'] = save_success
                 result['uploaded_file'] = unique_filename
                 result['original_filename'] = file.filename
+                result['session_id'] = session_id
+                
+                # Initialize HNSW service after indexing to include new embeddings
+                try:
+                    hnsw_service = session_manager.get_hnsw_service(session_id)
+                    # Rebuild HNSW index with new embeddings
+                    graph_manager = session_data.indexing_pipeline.graph_manager
+                    nodes_with_embeddings = []
+                    
+                    for node_id in graph_manager.graph.nodes():
+                        node = graph_manager.get_node(node_id)
+                        if node and hasattr(node, 'embeddings') and node.embeddings:
+                            nodes_with_embeddings.append((node_id, node.embeddings))
+                    
+                    if nodes_with_embeddings:
+                        hnsw_service.rebuild_index(nodes_with_embeddings)
+                        logger.info(f"HNSW index updated for session {session_id} with {len(nodes_with_embeddings)} embeddings")
+                except Exception as hnsw_error:
+                    logger.warning(f"Failed to update HNSW index for session {session_id}: {hnsw_error}")
                 
                 return jsonify(result)
             else:
@@ -138,6 +177,8 @@ def upload_and_index_document():
             except Exception as cleanup_error:
                 logger.warning(f"Failed to cleanup file {file_path}: {cleanup_error}")
             
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 400
     except Exception as e:
         logger.error(f"Error in upload_and_index_document: {e}")
         logger.error(traceback.format_exc())
@@ -173,19 +214,28 @@ def estimate_processing_cost():
 
 @app.route('/api/graph/stats', methods=['GET'])
 def get_graph_stats():
-    """Get current graph statistics."""
+    """Get current graph statistics for session."""
     try:
-        stats = indexing_pipeline.get_indexing_stats()
+        session_id = get_session_id(request)
+        session_data = session_manager.get_or_create_session(session_id)
+        
+        stats = session_data.indexing_pipeline.get_indexing_stats()
+        stats['session_id'] = session_id
         return jsonify(stats)
         
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 400
     except Exception as e:
         logger.error(f"Error in get_graph_stats: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/graph/nodes/<node_type>', methods=['GET'])
 def get_nodes_by_type(node_type: str):
-    """Get all nodes of a specific type."""
+    """Get all nodes of a specific type for session."""
     try:
+        session_id = get_session_id(request)
+        session_data = session_manager.get_or_create_session(session_id)
+        
         # Validate node type
         try:
             node_type_enum = NodeType(node_type.upper())
@@ -194,7 +244,7 @@ def get_nodes_by_type(node_type: str):
                 'error': f'Invalid node type: {node_type}. Valid types: {[t.value for t in NodeType]}'
             }), 400
         
-        nodes = indexing_pipeline.graph_manager.get_nodes_by_type(node_type_enum)
+        nodes = session_data.indexing_pipeline.graph_manager.get_nodes_by_type(node_type_enum)
         
         # Convert nodes to dict format
         nodes_data = []
@@ -209,9 +259,12 @@ def get_nodes_by_type(node_type: str):
         return jsonify({
             'node_type': node_type,
             'count': len(nodes_data),
-            'nodes': nodes_data
+            'nodes': nodes_data,
+            'session_id': session_id
         })
         
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 400
     except Exception as e:
         logger.error(f"Error in get_nodes_by_type: {e}")
         return jsonify({'error': str(e)}), 500
@@ -253,17 +306,20 @@ def get_node(node_id: str):
 
 @app.route('/api/debug/knowledge-base', methods=['GET'])
 def debug_knowledge_base():
-    """Debug endpoint to check knowledge base status."""
+    """Debug endpoint to check session-specific knowledge base status."""
     try:
-        # Get basic graph stats
-        graph = indexing_pipeline.graph_manager.graph
+        session_id = get_session_id(request)
+        session_data = session_manager.get_or_create_session(session_id)
+        
+        # Get basic graph stats from session
+        graph = session_data.indexing_pipeline.graph_manager.graph
         total_nodes = graph.number_of_nodes()
         total_edges = graph.number_of_edges()
         
         # Get node type counts
         node_types = {}
         for node_id in graph.nodes():
-            node = indexing_pipeline.graph_manager.get_node(node_id)
+            node = session_data.indexing_pipeline.graph_manager.get_node(node_id)
             if node:
                 node_type = node.type.value
                 node_types[node_type] = node_types.get(node_type, 0) + 1
@@ -272,7 +328,7 @@ def debug_knowledge_base():
         samples = {}
         for node_type in ['T', 'N', 'R', 'A', 'H']:
             try:
-                type_nodes = indexing_pipeline.graph_manager.get_nodes_by_type(NodeType(node_type))
+                type_nodes = session_data.indexing_pipeline.graph_manager.get_nodes_by_type(NodeType(node_type))
                 if type_nodes:
                     # Show first 3 nodes of each type
                     samples[node_type] = []
@@ -285,10 +341,10 @@ def debug_knowledge_base():
                 # Skip invalid node types
                 pass
         
-        # Check HNSW status
+        # Check session-specific HNSW status
         hnsw_status = "Not initialized"
         try:
-            hnsw = _initialize_hnsw_service()
+            hnsw = session_manager.get_hnsw_service(session_id)
             if hasattr(hnsw, 'index') and hnsw.index is not None:
                 hnsw_status = f"Initialized with {hnsw.index.get_current_count()} vectors"
             else:
@@ -298,6 +354,7 @@ def debug_knowledge_base():
         
         return jsonify({
             'success': True,
+            'session_id': session_id,
             'graph_stats': {
                 'total_nodes': total_nodes,
                 'total_edges': total_edges,
@@ -307,6 +364,8 @@ def debug_knowledge_base():
             'sample_nodes': samples
         })
         
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 400
     except Exception as e:
         logger.error(f"Error in debug_knowledge_base: {e}")
         return jsonify({
@@ -892,8 +951,10 @@ def ppr_search_endpoint():
 
 @app.route('/api/answer', methods=['POST'])
 def answer_generation_endpoint():
-    """Generate comprehensive answer using advanced search and retrieval."""
+    """Generate comprehensive answer using session-aware advanced search and retrieval."""
     try:
+        session_id = get_session_id(request)
+        
         data = request.get_json()
         
         if not data or 'query' not in data:
@@ -907,8 +968,8 @@ def answer_generation_endpoint():
         relationship_limit = data.get('relationship_limit', 30)
         high_level_limit = data.get('high_level_limit', 10)
         
-        # Initialize search system
-        search_system = _initialize_advanced_search()
+        # Get session-specific search system
+        search_system = session_manager.get_advanced_search(session_id)
         
         # Perform comprehensive search
         retrieval_result = search_system.search(
@@ -921,14 +982,18 @@ def answer_generation_endpoint():
         )
         
         # Debug: Log retrieval results
-        logger.info(f"Query: {query}")
-        logger.info(f"Retrieved {len(retrieval_result.final_nodes)} final nodes")
-        logger.info(f"HNSW results: {len(retrieval_result.hnsw_results)}")
-        logger.info(f"Exact entity matches: {len(retrieval_result.accurate_results)}")
-        logger.info(f"PPR results: {len(retrieval_result.ppr_results)}")
+        logger.info(f"Session {session_id} - Query: {query}")
+        logger.info(f"Session {session_id} - Retrieved {len(retrieval_result.final_nodes)} final nodes")
+        logger.info(f"Session {session_id} - HNSW results: {len(retrieval_result.hnsw_results)}")
+        logger.info(f"Session {session_id} - Exact entity matches: {len(retrieval_result.accurate_results)}")
+        logger.info(f"Session {session_id} - PPR results: {len(retrieval_result.ppr_results)}")
         
         if not retrieval_result.final_nodes:
-            logger.warning("No nodes retrieved for query - this might indicate indexing issues")
+            logger.warning(f"Session {session_id} - No nodes retrieved for query - this might indicate indexing issues")
+        
+        # Get session-specific graph manager
+        session_data = session_manager.get_or_create_session(session_id)
+        graph_manager = session_data.indexing_pipeline.graph_manager
         
         # Build structured context from retrieved nodes
         context_parts = []
@@ -944,7 +1009,7 @@ def answer_generation_endpoint():
         }
         
         for node_id in retrieval_result.final_nodes:
-            node = indexing_pipeline.graph_manager.get_node(node_id)
+            node = graph_manager.get_node(node_id)
             if node:
                 node_type = node.type.value.upper()
                 if node_type in nodes_by_type:
@@ -996,6 +1061,7 @@ def answer_generation_endpoint():
         # Build comprehensive response
         result = {
             'success': True,
+            'session_id': session_id,
             'query': query,
             'answer': response,
             'retrieval_metadata': {
@@ -1238,12 +1304,14 @@ def _initialize_graph_visualizer():
 
 @app.route('/api/visualization/create', methods=['POST'])
 def create_visualization():
-    """Create interactive graph visualization."""
+    """Create interactive graph visualization for session."""
     try:
+        session_id = get_session_id(request)
+        
         data = request.get_json() or {}
         
-        # Initialize visualizer
-        visualizer = _initialize_graph_visualizer()
+        # Get session-specific visualizer
+        visualizer = session_manager.get_graph_visualizer(session_id)
         
         # Parse parameters
         max_nodes = data.get('max_nodes', 2000)
@@ -1260,8 +1328,9 @@ def create_visualization():
                     'error': f'Invalid node type: {e}'
                 }), 400
         
-        # Create output path
-        output_path = os.path.join(Config.DATA_DIR, "processed", output_filename)
+        # Create session-specific output path
+        session_data = session_manager.get_or_create_session(session_id)
+        output_path = os.path.join(session_data.data_dir, "visualizations", output_filename)
         
         # Create visualization
         if highlight_communities:
@@ -1278,6 +1347,7 @@ def create_visualization():
         
         response = {
             'success': True,
+            'session_id': session_id,
             'visualization_path': viz_path,
             'output_filename': output_filename,
             'stats': stats,
@@ -1290,6 +1360,8 @@ def create_visualization():
         
         return jsonify(response)
         
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 400
     except Exception as e:
         logger.error(f"Error in create_visualization: {e}")
         logger.error(traceback.format_exc())
@@ -1439,6 +1511,67 @@ def serve_visualization(filename):
         
     except Exception as e:
         logger.error(f"Error in serve_visualization: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# Session Management Endpoints
+
+@app.route('/api/session/clear', methods=['POST'])
+def clear_session():
+    """Clear all data for the current session."""
+    try:
+        session_id = get_session_id(request)
+        
+        success = session_manager.clear_session(session_id)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': f'Session {session_id} cleared successfully'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': f'Session {session_id} not found'
+            }), 404
+            
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 400
+    except Exception as e:
+        logger.error(f"Error clearing session: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/session/stats', methods=['GET'])
+def get_session_stats():
+    """Get statistics for the current session."""
+    try:
+        session_id = get_session_id(request)
+        
+        stats = session_manager.get_session_stats(session_id)
+        
+        return jsonify({
+            'success': True,
+            'stats': stats
+        })
+        
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 400
+    except Exception as e:
+        logger.error(f"Error getting session stats: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sessions/list', methods=['GET'])
+def list_sessions():
+    """List all active sessions (admin endpoint)."""
+    try:
+        sessions = session_manager.list_active_sessions()
+        
+        return jsonify({
+            'success': True,
+            'sessions': sessions
+        })
+        
+    except Exception as e:
+        logger.error(f"Error listing sessions: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.errorhandler(404)
