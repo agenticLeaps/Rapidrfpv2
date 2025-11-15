@@ -1,5 +1,7 @@
 import streamlit as st
 import requests
+import uuid
+import time
 from typing import Dict
 
 # Configure page
@@ -9,34 +11,80 @@ st.set_page_config(
     layout="wide"
 )
 
-# Initialize session state
-if "api_base_url" not in st.session_state:
-    try:
-        st.session_state.api_base_url = st.secrets.get("API_BASE_URL", "http://localhost:5001")
-    except:
-        st.session_state.api_base_url = "http://localhost:5001"
+# Initialize unique session ID for user isolation
+def init_session():
+    """Initialize session with unique ID and clear state on new sessions."""
+    if "session_id" not in st.session_state:
+        st.session_state.session_id = str(uuid.uuid4())
+        st.session_state.session_start_time = time.time()
+        # Clear any existing data for new sessions
+        st.session_state.clear()
+        st.session_state.session_id = str(uuid.uuid4())
+        st.session_state.session_start_time = time.time()
+    
+    # Initialize other session-specific variables
+    if "api_base_url" not in st.session_state:
+        try:
+            st.session_state.api_base_url = st.secrets.get("API_BASE_URL", "http://localhost:5001")
+        except:
+            st.session_state.api_base_url = "http://localhost:5001"
+    
+    if "last_upload_status" not in st.session_state:
+        st.session_state.last_upload_status = None
+    
+    if "session_data" not in st.session_state:
+        st.session_state.session_data = {}
+    
+    if "explorer_nodes" not in st.session_state:
+        st.session_state.explorer_nodes = {}
 
-if "last_upload_status" not in st.session_state:
-    st.session_state.last_upload_status = None
+def clear_session_data():
+    """Clear all session-specific data while keeping session ID."""
+    keys_to_keep = ['session_id', 'session_start_time', 'api_base_url']
+    session_data = {k: v for k, v in st.session_state.items() if k in keys_to_keep}
+    st.session_state.clear()
+    for k, v in session_data.items():
+        st.session_state[k] = v
+    
+    # Reinitialize clean session state
+    init_session()
+
+# Call session initialization
+init_session()
 
 class RapidRFPAPI:
-    """Simple API client for RapidRFP RAG system."""
+    """Simple API client for RapidRFP RAG system with session isolation."""
     
-    def __init__(self, base_url: str = "http://localhost:5001"):
+    def __init__(self, base_url: str = "http://localhost:5001", session_id: str = None):
         self.base_url = base_url.rstrip('/')
+        self.session_id = session_id or st.session_state.get('session_id', str(uuid.uuid4()))
     
     def _make_request(self, method: str, endpoint: str, data: Dict = None, files: Dict = None) -> Dict:
-        """Make HTTP request to API."""
+        """Make HTTP request to API with session isolation."""
         try:
             url = f"{self.base_url}{endpoint}"
             
+            # Add session ID to all requests for isolation
+            headers = {'X-Session-ID': self.session_id}
+            
+            # Add session ID to data payload as well
+            if data is None:
+                data = {}
+            if isinstance(data, dict):
+                data['session_id'] = self.session_id
+            
             if method.upper() == 'GET':
-                response = requests.get(url, timeout=300)
+                params = {'session_id': self.session_id}
+                response = requests.get(url, headers=headers, params=params, timeout=300)
             elif method.upper() == 'POST':
                 if files:
-                    response = requests.post(url, data=data, files=files, timeout=300)
+                    # For file uploads, add session_id to data
+                    if not isinstance(data, dict):
+                        data = {}
+                    data['session_id'] = self.session_id
+                    response = requests.post(url, data=data, files=files, headers=headers, timeout=300)
                 else:
-                    response = requests.post(url, json=data, timeout=300)
+                    response = requests.post(url, json=data, headers=headers, timeout=300)
             else:
                 raise ValueError(f"Unsupported method: {method}")
             
@@ -98,12 +146,34 @@ class RapidRFPAPI:
 def main():
     """Main application function."""
     
-    # Header
-    st.title("🔗 RapidRFP RAG System")
-    st.markdown("**Intelligent Document Analysis and Q&A System**")
+    # Header with session info
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.title("🔗 RapidRFP RAG System")
+        st.markdown("**Intelligent Document Analysis and Q&A System**")
     
-    # API Status Check
-    api = RapidRFPAPI(st.session_state.api_base_url)
+    with col2:
+        st.markdown("**Session Info:**")
+        st.caption(f"ID: {st.session_state.session_id[:8]}...")
+        
+        # Show session duration
+        session_duration = int(time.time() - st.session_state.session_start_time)
+        minutes, seconds = divmod(session_duration, 60)
+        st.caption(f"Duration: {minutes:02d}:{seconds:02d}")
+        
+        col2_1, col2_2 = st.columns(2)
+        with col2_1:
+            if st.button("🔄 New Session", help="Clear all data and start fresh"):
+                # Clear all session data
+                st.session_state.clear()
+                st.rerun()
+        with col2_2:
+            if st.button("🗑️ Clear Data", help="Clear uploaded documents and cache"):
+                clear_session_data()
+                st.rerun()
+    
+    # API Status Check with session isolation
+    api = RapidRFPAPI(st.session_state.api_base_url, st.session_state.session_id)
     health = api.health_check()
     
     if 'error' not in health:
@@ -306,13 +376,13 @@ def main():
                     nodes_result = api.get_nodes_by_type(node_type)
                     
                     if 'error' not in nodes_result:
-                        st.session_state['explorer_nodes'] = nodes_result
+                        st.session_state.explorer_nodes = nodes_result
                     else:
                         st.error(f"Error: {nodes_result['error']}")
         
         with col2:
-            if 'explorer_nodes' in st.session_state:
-                nodes_data = st.session_state['explorer_nodes']
+            if st.session_state.explorer_nodes:
+                nodes_data = st.session_state.explorer_nodes
                 st.write(f"**Found {nodes_data.get('count', 0)} {node_type} nodes:**")
                 
                 # Show first 10 nodes
