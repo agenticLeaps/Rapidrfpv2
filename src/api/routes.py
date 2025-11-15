@@ -869,7 +869,8 @@ def answer_generation_endpoint():
                 node_details.append({
                     'id': node.id,
                     'type': node.type.value,
-                    'content': node.content[:200] + '...' if len(node.content) > 200 else node.content
+                    'content': node.content,  # Include full content for sources
+                    'metadata': getattr(node, 'metadata', {})
                 })
         
         # Format context based on prompt type
