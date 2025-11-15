@@ -336,10 +336,18 @@ class IndexingPipeline:
             if hasattr(entity, 'content'):
                 context_chunks.append(f"Entity: {entity.content}")
             
-            # Generate attributes using LLM
+            # Get relationships for this entity
+            entity_relationships = []
+            for neighbor in self.graph_manager.graph.neighbors(entity.id):
+                neighbor_node = self.graph_manager.get_node(neighbor)
+                if neighbor_node and neighbor_node.type == NodeType.R:
+                    entity_relationships.append(neighbor_node.content)
+            
+            # Generate attributes using LLM with relationships
             attributes = self.llm_service.generate_entity_attributes(
                 entity.content, 
-                context_chunks[:5]  # Limit context to avoid token limits
+                context_chunks[:5],  # Limit context to avoid token limits
+                entity_relationships[:3]  # Include up to 3 relationships
             )
             
             # Create attribute node
