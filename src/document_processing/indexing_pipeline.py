@@ -340,7 +340,7 @@ class IndexingPipeline:
             entity_relationships = []
             for neighbor in self.graph_manager.graph.neighbors(entity.id):
                 neighbor_node = self.graph_manager.get_node(neighbor)
-                if neighbor_node and neighbor_node.type == NodeType.R:
+                if neighbor_node and neighbor_node.type == NodeType.RELATIONSHIP:
                     entity_relationships.append(neighbor_node.content)
             
             # Generate attributes using LLM with relationships

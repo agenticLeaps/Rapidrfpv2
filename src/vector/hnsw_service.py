@@ -392,6 +392,77 @@ class HNSWService:
             'fill_percentage': (self.current_count / self.max_elements) * 100
         }
     
+    def rebuild_index(self, nodes_with_embeddings: List[Tuple[str, List[float]]]) -> bool:
+        """
+        Rebuild the entire HNSW index with new node embeddings.
+        
+        Args:
+            nodes_with_embeddings: List of (node_id, embedding_vector) tuples
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            logger.info(f"Rebuilding HNSW index with {len(nodes_with_embeddings)} nodes")
+            
+            # Create new index
+            self.index = hnswlib.Index(space=self.space, dim=self.dimension)
+            self.index.init_index(
+                max_elements=self.max_elements,
+                ef_construction=self.ef_construction,
+                M=self.m
+            )
+            
+            # Reset mappings
+            self.id_mapping = {}
+            self.reverse_mapping = {}
+            self.node_metadata = {}
+            self.current_count = 0
+            
+            # Add all embeddings
+            node_ids = []
+            embeddings = []
+            
+            for node_id, embedding in nodes_with_embeddings:
+                if embedding and len(embedding) == self.dimension:
+                    node_ids.append(node_id)
+                    embeddings.append(embedding)
+                else:
+                    logger.warning(f"Skipping node {node_id} with invalid embedding")
+            
+            if embeddings:
+                # Convert to numpy array
+                embedding_matrix = np.array(embeddings, dtype=np.float32)
+                
+                # Create internal IDs
+                internal_ids = list(range(len(node_ids)))
+                
+                # Update mappings
+                for i, node_id in enumerate(node_ids):
+                    self.id_mapping[i] = node_id
+                    self.reverse_mapping[node_id] = i
+                    self.current_count += 1
+                
+                # Add to index
+                self.index.add_items(embedding_matrix, internal_ids)
+                
+                # Set search parameters
+                self.index.set_ef(50)  # Default search parameter
+                
+                logger.info(f"HNSW index rebuilt with {len(embeddings)} embeddings")
+                
+                # Save the rebuilt index
+                self.save_index()
+                
+                return True
+            else:
+                logger.warning("No valid embeddings to add to index")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error rebuilding HNSW index: {e}")
+            return False
+    
     def build_nx_graph(self) -> nx.Graph:
         """
         Build NetworkX graph from HNSW connections (Layer 0).
