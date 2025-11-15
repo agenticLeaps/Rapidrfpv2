@@ -73,7 +73,7 @@ class Config:
     HNSW_INDEX_PATH = get_config_value("HNSW_INDEX_PATH", "data/processed/hnsw_index")
     
     # HNSW Settings
-    HNSW_DIMENSION = get_int_config("HNSW_DIMENSION", 2560)  # HuggingFace Qwen embedding dimension
+    HNSW_DIMENSION = get_int_config("HNSW_DIMENSION", 1536)  # OpenAI embedding dimension
     HNSW_MAX_ELEMENTS = get_int_config("HNSW_MAX_ELEMENTS", 100000)
     HNSW_EF_CONSTRUCTION = get_int_config("HNSW_EF_CONSTRUCTION", 200)
     HNSW_M = get_int_config("HNSW_M", 50)

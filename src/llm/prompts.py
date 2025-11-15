@@ -99,12 +99,16 @@ Clustered text data:
 QUERY_DECOMPOSITION_PROMPT = """
 Please break down the following query into a single list. Each item in the list should either be a main entity (such as a key noun or object). If you have high confidence about the user's intent or domain knowledge, you may also include closely related terms. If uncertain, please only extract entities and semantic chunks directly from the query. Please try to reduce the number of common nouns in the list. Ensure all elements are organized within one unified list.
 
+Return your response as JSON with the format: {{"elements": ["entity1", "entity2", ...]}}
+
 Query: {query}
 """
 
 # Relationship Reconstruction Prompt (for fixing malformed relationships)
 RELATIONSHIP_RECONSTRUCTION_PROMPT = """
 Please reconstruct the following relationship triple that may be malformed or incomplete. Return a properly formatted relationship with exactly three components: source entity, relationship type, and target entity.
+
+Return your response as JSON with the format: {{"source_entity": "entity1", "relationship_type": "relation", "target_entity": "entity2"}}
 
 Malformed relationship: {relationship}
 

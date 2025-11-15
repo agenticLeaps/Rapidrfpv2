@@ -423,43 +423,36 @@ Title:"""
             return "Community Overview"
     
     def get_embeddings(self, texts: List[str], batch_size: int = None) -> List[List[float]]:
-        """Get embeddings for a list of texts using HuggingFace endpoint."""
+        """Get embeddings for a list of texts using OpenAI embeddings."""
         if not texts:
             return []
         
         if batch_size is None:
-            batch_size = Config.DEFAULT_BATCH_SIZE
+            batch_size = min(Config.DEFAULT_BATCH_SIZE, 1000)  # OpenAI limit
         
         all_embeddings = []
         
         try:
-            # Process in batches using HF Gradio format
+            # Process in batches using OpenAI
             for i in range(0, len(texts), batch_size):
                 batch = texts[i:i + batch_size]
                 
-                # Join texts with separator for batch processing
-                texts_str = "|||".join(batch)
-                
-                result = self.embedding_client.predict(
-                    texts_str,        # text_input parameter
-                    len(batch)        # batch_size_input parameter
+                # Use OpenAI embeddings API
+                response = self.openai_client.embeddings.create(
+                    model="text-embedding-3-small",  # Latest OpenAI embedding model
+                    input=batch,
+                    encoding_format="float"
                 )
                 
-                # Parse JSON result (Gradio returns JSON string)
-                if isinstance(result, str):
-                    import json
-                    result_data = json.loads(result)
-                else:
-                    result_data = result
-                
-                embeddings = result_data.get("embeddings", [])
+                # Extract embeddings from response
+                embeddings = [data.embedding for data in response.data]
                 
                 if embeddings and len(embeddings) == len(batch):
                     all_embeddings.extend(embeddings)
                 else:
                     logger.warning(f"Unexpected embedding result format for batch {i}")
-                    # Add zero embeddings as fallback
-                    all_embeddings.extend([[0.0] * 768 for _ in batch])
+                    # Add zero embeddings as fallback (1536 dimensions for OpenAI)
+                    all_embeddings.extend([[0.0] * 1536 for _ in batch])
                 
                 # Small delay to avoid rate limiting
                 if i + batch_size < len(texts):
@@ -469,8 +462,8 @@ Title:"""
             
         except Exception as e:
             logger.error(f"Error getting embeddings: {e}")
-            # Return zero embeddings as fallback (768 dimensions for HF model)
-            return [[0.0] * 768 for _ in texts]
+            # Return zero embeddings as fallback (1536 dimensions for OpenAI)
+            return [[0.0] * 1536 for _ in texts]
     
     def _parse_json_list(self, response: str) -> List[str]:
         """Parse JSON list from LLM response."""
