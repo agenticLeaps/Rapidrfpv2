@@ -2360,3 +2360,86 @@ Description: The text data mentions the concept of a Coitonic Af...
 - The primary subjects covered in the knowledge base revolve around the Coitonic Affiliate Program, affiliate marketing strategies, affiliate codes, sponsorship programs, and dig...
 2025-11-26 01:54:37,772 - api_service - INFO - ✅ Generated Neon storage response with 16 sources
 2025-11-26 01:54:37,775 - werkzeug - INFO - 127.0.0.1 - - [26/Nov/2025 01:54:37] "POST /api/v1/generate-response HTTP/1.1" 200 -
+2025-11-26 02:37:37,650 - __main__ - INFO - ✅ Environment check passed
+2025-11-26 02:37:37,650 - __main__ - INFO - 🌐 Starting server on 0.0.0.0:5001 (debug=False)
+2025-11-26 02:37:37,659 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.29.147:5001
+2025-11-26 02:37:37,659 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-11-26 02:37:47,886 - api_service - INFO - 🤖 Generating NodeRAG response for query: 'hi...'
+2025-11-26 02:37:47,921 - src.llm.llm_service - INFO - OpenAI client initialized successfully
+2025-11-26 02:37:49,058 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings "HTTP/1.1 200 OK"
+2025-11-26 02:37:49,318 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings/runtime "HTTP/1.1 200 OK"
+2025-11-26 02:37:50,500 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/config "HTTP/1.1 200 OK"
+2025-11-26 02:37:51,469 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/info?serialize=False "HTTP/1.1 200 OK"
+2025-11-26 02:37:51,471 - src.llm.llm_service - INFO - HF embedding client initialized: mahendraVarmaGokaraju/qwen3-embeddings
+2025-11-26 02:37:51,473 - src.document_processing.llamaparse_service - INFO - LlamaParse service initialized
+2025-11-26 02:37:51,473 - src.document_processing.llamaparse_service - INFO - LlamaParse integration enabled
+2025-11-26 02:37:51,567 - api_service - INFO - 📊 No data in memory graph, using Neon storage search
+2025-11-26 02:37:51,591 - src.llm.llm_service - INFO - OpenAI client initialized successfully
+2025-11-26 02:37:51,708 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/telemetry/py_client/initiated "HTTP/1.1 200 OK"
+2025-11-26 02:37:51,922 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings "HTTP/1.1 200 OK"
+2025-11-26 02:37:52,185 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings/runtime "HTTP/1.1 200 OK"
+2025-11-26 02:37:52,524 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/heartbeat/582f2bc0-c2e2-4039-a624-642b30b76320 "HTTP/1.1 200 OK"
+2025-11-26 02:37:53,171 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/config "HTTP/1.1 200 OK"
+2025-11-26 02:37:54,171 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/info?serialize=False "HTTP/1.1 200 OK"
+2025-11-26 02:37:54,174 - src.llm.llm_service - INFO - HF embedding client initialized: mahendraVarmaGokaraju/qwen3-embeddings
+2025-11-26 02:37:54,410 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/telemetry/py_client/initiated "HTTP/1.1 200 OK"
+2025-11-26 02:37:55,186 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/heartbeat/f9bb38d2-5fc2-49e3-b68c-daa3583d7df7 "HTTP/1.1 200 OK"
+2025-11-26 02:37:55,355 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-11-26 02:37:59,209 - src.storage.neon_storage - INFO - 🔍 Found 20 search results for query: 'hi...'
+2025-11-26 02:37:59,461 - api_service - INFO - 🔍 Processing 20 search results:
+2025-11-26 02:37:59,461 - api_service - INFO -   Result 0: node_type=N, file_id=f8775e45-2f02-4363-a44b-c6af96ca6a00, content_preview=XYZ...
+2025-11-26 02:37:59,461 - api_service - INFO -   Result 1: node_type=S, file_id=f8775e45-2f02-4363-a44b-c6af96ca6a00, content_preview=Contact information: Email - info@coitonic.com, Instagram - @coitonic, Website - www.coitonic.com...
+2025-11-26 02:37:59,461 - api_service - INFO -   Result 2: node_type=N, file_id=f8775e45-2f02-4363-a44b-c6af96ca6a00, content_preview=Coitonic Affiliate...
+2025-11-26 02:37:59,461 - api_service - INFO - 📝 Built context with 4835 characters from 20 nodes
+2025-11-26 02:37:59,462 - api_service - INFO - 🤖 Generating standard answer with prompt length: 5719 characters
+2025-11-26 02:38:00,210 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 02:38:00,228 - api_service - INFO - ✅ Generated response length: 69 characters
+2025-11-26 02:38:00,229 - api_service - INFO - 📄 Response preview: Hello! How can I assist you today regarding the information provided?...
+2025-11-26 02:38:00,522 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2025-11-26 02:38:00,522 - src.llm.llm_service - ERROR - OpenAI API error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}
+2025-11-26 02:38:00,523 - api_service - ERROR - ❌ Response generation error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}
+2025-11-26 02:38:00,524 - werkzeug - INFO - 127.0.0.1 - - [26/Nov/2025 02:38:00] "[35m[1mPOST /api/v1/generate-response HTTP/1.1[0m" 500 -
+2025-11-26 02:40:09,864 - __main__ - INFO - ✅ Environment check passed
+2025-11-26 02:40:09,864 - __main__ - INFO - 🌐 Starting server on 0.0.0.0:5001 (debug=False)
+2025-11-26 02:40:09,870 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.29.147:5001
+2025-11-26 02:40:09,870 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-11-26 02:40:15,357 - api_service - INFO - 🤖 Generating NodeRAG response for query: 'hi...'
+2025-11-26 02:40:15,388 - src.llm.llm_service - INFO - OpenAI client initialized successfully
+2025-11-26 02:40:15,886 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings "HTTP/1.1 200 OK"
+2025-11-26 02:40:16,141 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings/runtime "HTTP/1.1 200 OK"
+2025-11-26 02:40:17,277 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/config "HTTP/1.1 200 OK"
+2025-11-26 02:40:18,316 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/info?serialize=False "HTTP/1.1 200 OK"
+2025-11-26 02:40:18,319 - src.llm.llm_service - INFO - HF embedding client initialized: mahendraVarmaGokaraju/qwen3-embeddings
+2025-11-26 02:40:18,320 - src.document_processing.llamaparse_service - INFO - LlamaParse service initialized
+2025-11-26 02:40:18,321 - src.document_processing.llamaparse_service - INFO - LlamaParse integration enabled
+2025-11-26 02:40:18,409 - api_service - INFO - 📊 No data in memory graph, using Neon storage search
+2025-11-26 02:40:18,431 - src.llm.llm_service - INFO - OpenAI client initialized successfully
+2025-11-26 02:40:18,556 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/telemetry/py_client/initiated "HTTP/1.1 200 OK"
+2025-11-26 02:40:18,853 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings "HTTP/1.1 200 OK"
+2025-11-26 02:40:19,108 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings/runtime "HTTP/1.1 200 OK"
+2025-11-26 02:40:19,352 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/heartbeat/c088ab44-4335-42fa-9779-020535bba4cd "HTTP/1.1 200 OK"
+2025-11-26 02:40:20,137 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/config "HTTP/1.1 200 OK"
+2025-11-26 02:40:21,146 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/info?serialize=False "HTTP/1.1 200 OK"
+2025-11-26 02:40:21,149 - src.llm.llm_service - INFO - HF embedding client initialized: mahendraVarmaGokaraju/qwen3-embeddings
+2025-11-26 02:40:21,384 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/telemetry/py_client/initiated "HTTP/1.1 200 OK"
+2025-11-26 02:40:21,820 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 401 Unauthorized"
+2025-11-26 02:40:21,823 - src.llm.llm_service - ERROR - Error getting embeddings: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 02:40:22,166 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/heartbeat/f2fed1fe-a433-4634-8ee8-94d5ab2609b5 "HTTP/1.1 200 OK"
+2025-11-26 02:40:25,716 - src.storage.neon_storage - INFO - 🔍 Found 20 search results for query: 'hi...'
+2025-11-26 02:40:25,973 - api_service - INFO - 🔍 Processing 20 search results:
+2025-11-26 02:40:25,973 - api_service - INFO -   Result 0: node_type=O, file_id=f8775e45-2f02-4363-a44b-c6af96ca6a00, content_preview=Coitonic Affiliate Program: Driving Success in Digital Marketing...
+2025-11-26 02:40:25,974 - api_service - INFO -   Result 1: node_type=H, file_id=f8775e45-2f02-4363-a44b-c6af96ca6a00, content_preview=1. Coitonic Affiliate Program Overview
+   The Coitonic Affiliate Program is a strategic initiative a...
+2025-11-26 02:40:25,974 - api_service - INFO -   Result 2: node_type=N, file_id=f8775e45-2f02-4363-a44b-c6af96ca6a00, content_preview=XYZ...
+2025-11-26 02:40:25,974 - api_service - INFO - 📝 Built context with 5765 characters from 20 nodes
+2025-11-26 02:40:25,974 - api_service - INFO - 🤖 Generating standard answer with prompt length: 6649 characters
+2025-11-26 02:40:26,358 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2025-11-26 02:40:26,359 - src.llm.llm_service - ERROR - OpenAI API error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}
+2025-11-26 02:40:26,359 - api_service - ERROR - ❌ Response generation error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}
+2025-11-26 02:40:26,364 - werkzeug - INFO - 127.0.0.1 - - [26/Nov/2025 02:40:26] "[35m[1mPOST /api/v1/generate-response HTTP/1.1[0m" 500 -

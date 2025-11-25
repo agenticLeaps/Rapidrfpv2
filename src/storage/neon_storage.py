@@ -157,6 +157,16 @@ class NeonDBStorage:
                                     (node_id, node_type, content, embedding, org_id, file_id, user_id, 
                                      chunk_index, graph_metadata)
                                     VALUES ($1, $2, $3, $4::vector, $5, $6, $7, $8, $9)
+                                    ON CONFLICT (node_id) DO UPDATE SET
+                                        node_type = EXCLUDED.node_type,
+                                        content = EXCLUDED.content,
+                                        embedding = EXCLUDED.embedding,
+                                        org_id = EXCLUDED.org_id,
+                                        file_id = EXCLUDED.file_id,
+                                        user_id = EXCLUDED.user_id,
+                                        chunk_index = EXCLUDED.chunk_index,
+                                        graph_metadata = EXCLUDED.graph_metadata,
+                                        updated_at = CURRENT_TIMESTAMP
                                 """, 
                                     node.id,
                                     node.type.value if hasattr(node.type, 'value') else str(node.type),
