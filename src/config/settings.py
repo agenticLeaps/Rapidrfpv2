@@ -30,10 +30,10 @@ except ImportError:
 
 class Config:
     # OpenAI API Settings (for LLM)
-    OPENAI_API_KEY = get_config_value("OPENAI_API_KEY", "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")
+    OPENAI_API_KEY = get_config_value("OPENAI_API_KEY", "")
     
     # LlamaParse API Settings
-    LLAMA_CLOUD_API_KEY = get_config_value("LLAMA_CLOUD_API_KEY", "llx-39hXdpTryilYqVOHcd3nu9FXaNRTIZS625IZNR11idRfqk1u")
+    LLAMA_CLOUD_API_KEY = get_config_value("LLAMA_CLOUD_API_KEY", "")
     USE_LLAMAPARSE = get_bool_config("USE_LLAMAPARSE", True)
     LLAMAPARSE_RESULT_TYPE = get_config_value("LLAMAPARSE_RESULT_TYPE", "markdown")
     LLAMAPARSE_LANGUAGE = get_config_value("LLAMAPARSE_LANGUAGE", "en")
