@@ -2443,3 +2443,166 @@ Description: The text data mentions the concept of a Coitonic Af...
 2025-11-26 02:40:26,359 - src.llm.llm_service - ERROR - OpenAI API error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}
 2025-11-26 02:40:26,359 - api_service - ERROR - ❌ Response generation error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}
 2025-11-26 02:40:26,364 - werkzeug - INFO - 127.0.0.1 - - [26/Nov/2025 02:40:26] "[35m[1mPOST /api/v1/generate-response HTTP/1.1[0m" 500 -
+2025-11-26 04:26:04,492 - __main__ - INFO - ✅ Environment check passed
+2025-11-26 04:26:04,492 - __main__ - INFO - 🌐 Starting server on 0.0.0.0:5001 (debug=False)
+2025-11-26 04:26:04,501 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.29.147:5001
+2025-11-26 04:26:04,501 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-11-26 04:27:05,572 - api_service - INFO - 🚀 Starting NodeRAG processing: file_id=e8d9d2f8-5894-45cc-8087-4a6166a96d28, org_id=12aff77d-e387-4f4b-93bd-b294756dd96f, chunks=1
+2025-11-26 04:27:05,613 - api_service - INFO - ✅ Webhook sent successfully: processing
+2025-11-26 04:27:05,624 - werkzeug - INFO - 127.0.0.1 - - [26/Nov/2025 04:27:05] "[35m[1mPOST /api/v1/process-document HTTP/1.1[0m" 202 -
+2025-11-26 04:27:05,704 - src.llm.llm_service - INFO - OpenAI client initialized successfully
+2025-11-26 04:27:06,176 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings "HTTP/1.1 200 OK"
+2025-11-26 04:27:06,436 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings/runtime "HTTP/1.1 200 OK"
+2025-11-26 04:27:07,484 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/config "HTTP/1.1 200 OK"
+2025-11-26 04:27:08,469 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/info?serialize=False "HTTP/1.1 200 OK"
+2025-11-26 04:27:08,472 - src.llm.llm_service - INFO - HF embedding client initialized: mahendraVarmaGokaraju/qwen3-embeddings
+2025-11-26 04:27:08,474 - src.document_processing.llamaparse_service - INFO - LlamaParse service initialized
+2025-11-26 04:27:08,474 - src.document_processing.llamaparse_service - INFO - LlamaParse integration enabled
+2025-11-26 04:27:08,562 - api_service - INFO - ✅ Webhook sent successfully: phase1_started
+2025-11-26 04:27:08,562 - api_service - INFO - 🔄 Phase 1: Graph Decomposition
+2025-11-26 04:27:08,562 - src.document_processing.indexing_pipeline - INFO - Starting Phase I: Graph Decomposition
+2025-11-26 04:27:08,708 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/telemetry/py_client/initiated "HTTP/1.1 200 OK"
+2025-11-26 04:27:09,084 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2025-11-26 04:27:09,086 - src.llm.llm_service - ERROR - OpenAI API error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:27:09,087 - src.llm.llm_service - ERROR - Error extracting entities: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:27:09,374 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2025-11-26 04:27:09,375 - src.llm.llm_service - ERROR - OpenAI API error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:27:09,375 - src.llm.llm_service - ERROR - Error extracting semantic units: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:27:09,375 - src.document_processing.indexing_pipeline - INFO - Phase I completed: 1 successful, 0 failed
+2025-11-26 04:27:09,387 - api_service - INFO - ✅ Webhook sent successfully: phase2_started
+2025-11-26 04:27:09,387 - api_service - INFO - 🔄 Phase 2: Graph Augmentation
+2025-11-26 04:27:09,387 - src.document_processing.indexing_pipeline - INFO - Starting Phase II: Graph Augmentation
+2025-11-26 04:27:09,388 - src.document_processing.indexing_pipeline - INFO - Identified 0 important entities
+2025-11-26 04:27:09,388 - src.document_processing.indexing_pipeline - INFO - Created 0 attribute nodes
+2025-11-26 04:27:09,420 - src.graph.graph_manager - INFO - Detected 1 communities
+2025-11-26 04:27:09,501 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/heartbeat/fdb2e64b-2a1f-429d-8ba9-9ffd0622c33f "HTTP/1.1 200 OK"
+2025-11-26 04:27:09,709 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2025-11-26 04:27:09,710 - src.llm.llm_service - ERROR - OpenAI API error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:27:09,710 - src.llm.llm_service - ERROR - Error generating community summary: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:27:09,998 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2025-11-26 04:27:09,999 - src.llm.llm_service - ERROR - OpenAI API error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:27:10,000 - src.llm.llm_service - ERROR - Error generating community overview: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:27:10,000 - src.document_processing.indexing_pipeline - INFO - Created 1 high-level nodes and 1 overview nodes
+2025-11-26 04:27:10,015 - api_service - INFO - ✅ Webhook sent successfully: phase3_started
+2025-11-26 04:27:10,015 - api_service - INFO - 🔄 Phase 3: Embedding Generation
+2025-11-26 04:27:10,015 - src.document_processing.indexing_pipeline - INFO - Starting Phase III: Embedding Generation
+2025-11-26 04:27:10,017 - src.vector.hnsw_service - INFO - HNSW service initialized: dim=1536, space=cosine
+2025-11-26 04:27:10,025 - src.vector.hnsw_service - INFO - HNSW index loaded from data/processed/hnsw_index, 187 elements
+2025-11-26 04:27:10,025 - src.document_processing.indexing_pipeline - INFO - Loaded existing HNSW index with 187 vectors
+2025-11-26 04:27:10,025 - src.document_processing.indexing_pipeline - INFO - HNSW service initialized: True
+2025-11-26 04:27:10,025 - src.document_processing.indexing_pipeline - INFO - Generating embeddings for 2 nodes
+2025-11-26 04:27:10,355 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 401 Unauthorized"
+2025-11-26 04:27:10,356 - src.llm.llm_service - ERROR - Error getting embeddings: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:27:10,356 - src.vector.hnsw_service - WARNING - Node H_community_0 already exists in index
+2025-11-26 04:27:10,356 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_0 to HNSW index
+2025-11-26 04:27:10,356 - src.vector.hnsw_service - WARNING - Node O_community_0 already exists in index
+2025-11-26 04:27:10,356 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_0 to HNSW index
+2025-11-26 04:27:10,356 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 1/1
+2025-11-26 04:27:10,361 - src.vector.hnsw_service - INFO - HNSW index saved to data/processed/hnsw_index
+2025-11-26 04:27:10,361 - src.document_processing.indexing_pipeline - INFO - HNSW index saved: True
+2025-11-26 04:27:10,361 - src.document_processing.indexing_pipeline - INFO - Phase III completed: 0 embeddings generated and indexed
+2025-11-26 04:27:10,361 - api_service - INFO - 💾 Storing in NeonDB
+2025-11-26 04:27:10,404 - src.llm.llm_service - INFO - OpenAI client initialized successfully
+2025-11-26 04:27:10,658 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings "HTTP/1.1 200 OK"
+2025-11-26 04:27:10,910 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings/runtime "HTTP/1.1 200 OK"
+2025-11-26 04:27:11,965 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/config "HTTP/1.1 200 OK"
+2025-11-26 04:27:12,970 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/info?serialize=False "HTTP/1.1 200 OK"
+2025-11-26 04:27:12,973 - src.llm.llm_service - INFO - HF embedding client initialized: mahendraVarmaGokaraju/qwen3-embeddings
+2025-11-26 04:27:13,209 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/telemetry/py_client/initiated "HTTP/1.1 200 OK"
+2025-11-26 04:27:13,944 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/heartbeat/d9fd5928-a89c-43a5-87fa-18b0404e3ea0 "HTTP/1.1 200 OK"
+2025-11-26 04:27:15,978 - src.storage.neon_storage - INFO - ✅ NodeRAG database tables ensured
+2025-11-26 04:27:18,860 - src.storage.neon_storage - INFO - ✅ Stored graph data for file_id=e8d9d2f8-5894-45cc-8087-4a6166a96d28
+2025-11-26 04:27:18,861 - src.storage.neon_storage - INFO - 📊 Found 2 nodes to store
+2025-11-26 04:27:21,650 - src.storage.neon_storage - INFO - ✅ Stored 2 embeddings for file_id=e8d9d2f8-5894-45cc-8087-4a6166a96d28
+2025-11-26 04:27:22,179 - api_service - INFO - ✅ Webhook sent successfully: completed
+2025-11-26 04:27:22,180 - api_service - INFO - ✅ NodeRAG processing completed for file_id=e8d9d2f8-5894-45cc-8087-4a6166a96d28
+2025-11-26 04:36:24,316 - __main__ - INFO - ✅ Environment check passed
+2025-11-26 04:36:24,316 - __main__ - INFO - 🌐 Starting server on 0.0.0.0:5001 (debug=False)
+2025-11-26 04:36:24,323 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.29.147:5001
+2025-11-26 04:36:24,323 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-11-26 04:39:05,669 - api_service - INFO - 🚀 Starting NodeRAG processing: file_id=ade9b512-6c96-4f8e-b615-d9f190012147, org_id=12aff77d-e387-4f4b-93bd-b294756dd96f, chunks=2
+2025-11-26 04:39:06,213 - api_service - INFO - ✅ Webhook sent successfully: processing
+2025-11-26 04:39:06,219 - werkzeug - INFO - 127.0.0.1 - - [26/Nov/2025 04:39:06] "[35m[1mPOST /api/v1/process-document HTTP/1.1[0m" 202 -
+2025-11-26 04:39:06,258 - src.llm.llm_service - INFO - OpenAI client initialized successfully
+2025-11-26 04:39:06,610 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings "HTTP/1.1 200 OK"
+2025-11-26 04:39:06,857 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings/runtime "HTTP/1.1 200 OK"
+2025-11-26 04:39:07,915 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/config "HTTP/1.1 200 OK"
+2025-11-26 04:39:08,886 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/info?serialize=False "HTTP/1.1 200 OK"
+2025-11-26 04:39:08,888 - src.llm.llm_service - INFO - HF embedding client initialized: mahendraVarmaGokaraju/qwen3-embeddings
+2025-11-26 04:39:08,888 - src.document_processing.llamaparse_service - INFO - LlamaParse service initialized
+2025-11-26 04:39:08,888 - src.document_processing.llamaparse_service - INFO - LlamaParse integration enabled
+2025-11-26 04:39:09,117 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/telemetry/py_client/initiated "HTTP/1.1 200 OK"
+2025-11-26 04:39:09,231 - api_service - INFO - ✅ Webhook sent successfully: phase1_started
+2025-11-26 04:39:09,232 - api_service - INFO - 🔄 Phase 1: Graph Decomposition
+2025-11-26 04:39:09,232 - src.document_processing.indexing_pipeline - INFO - Starting Phase I: Graph Decomposition
+2025-11-26 04:39:09,897 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/heartbeat/b4f03e12-381e-4d5f-bd3e-840dc5f8830b "HTTP/1.1 200 OK"
+2025-11-26 04:39:11,201 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2025-11-26 04:39:11,203 - src.llm.llm_service - ERROR - OpenAI API error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:39:11,204 - src.llm.llm_service - ERROR - Error extracting entities: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:39:11,499 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2025-11-26 04:39:11,500 - src.llm.llm_service - ERROR - OpenAI API error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:39:11,500 - src.llm.llm_service - ERROR - Error extracting semantic units: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:39:11,789 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2025-11-26 04:39:11,789 - src.llm.llm_service - ERROR - OpenAI API error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:39:11,789 - src.llm.llm_service - ERROR - Error extracting entities: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:39:12,077 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2025-11-26 04:39:12,077 - src.llm.llm_service - ERROR - OpenAI API error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:39:12,077 - src.llm.llm_service - ERROR - Error extracting semantic units: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:39:12,077 - src.document_processing.indexing_pipeline - INFO - Phase I completed: 2 successful, 0 failed
+2025-11-26 04:39:12,350 - api_service - INFO - ✅ Webhook sent successfully: phase2_started
+2025-11-26 04:39:12,352 - api_service - INFO - 🔄 Phase 2: Graph Augmentation
+2025-11-26 04:39:12,352 - src.document_processing.indexing_pipeline - INFO - Starting Phase II: Graph Augmentation
+2025-11-26 04:39:12,356 - src.document_processing.indexing_pipeline - INFO - Identified 0 important entities
+2025-11-26 04:39:12,357 - src.document_processing.indexing_pipeline - INFO - Created 0 attribute nodes
+2025-11-26 04:39:12,364 - src.graph.graph_manager - INFO - Detected 2 communities
+2025-11-26 04:39:12,657 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2025-11-26 04:39:12,657 - src.llm.llm_service - ERROR - OpenAI API error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:39:12,657 - src.llm.llm_service - ERROR - Error generating community summary: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:39:12,945 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2025-11-26 04:39:12,947 - src.llm.llm_service - ERROR - OpenAI API error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:39:12,947 - src.llm.llm_service - ERROR - Error generating community overview: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:39:13,242 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2025-11-26 04:39:13,243 - src.llm.llm_service - ERROR - OpenAI API error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}
+2025-11-26 04:39:13,243 - src.llm.llm_service - ERROR - Error generating community summary: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}
+2025-11-26 04:39:13,881 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2025-11-26 04:39:13,881 - src.llm.llm_service - ERROR - OpenAI API error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:39:13,881 - src.llm.llm_service - ERROR - Error generating community overview: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:39:13,881 - src.document_processing.indexing_pipeline - INFO - Created 2 high-level nodes and 2 overview nodes
+2025-11-26 04:39:14,150 - api_service - INFO - ✅ Webhook sent successfully: phase3_started
+2025-11-26 04:39:14,152 - api_service - INFO - 🔄 Phase 3: Embedding Generation
+2025-11-26 04:39:14,152 - src.document_processing.indexing_pipeline - INFO - Starting Phase III: Embedding Generation
+2025-11-26 04:39:14,160 - src.vector.hnsw_service - INFO - HNSW service initialized: dim=1536, space=cosine
+2025-11-26 04:39:14,166 - src.vector.hnsw_service - INFO - HNSW index loaded from data/processed/hnsw_index, 187 elements
+2025-11-26 04:39:14,166 - src.document_processing.indexing_pipeline - INFO - Loaded existing HNSW index with 187 vectors
+2025-11-26 04:39:14,166 - src.document_processing.indexing_pipeline - INFO - HNSW service initialized: True
+2025-11-26 04:39:14,167 - src.document_processing.indexing_pipeline - INFO - Generating embeddings for 4 nodes
+2025-11-26 04:39:15,631 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 401 Unauthorized"
+2025-11-26 04:39:15,633 - src.llm.llm_service - ERROR - Error getting embeddings: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************-iUA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}}
+2025-11-26 04:39:15,633 - src.vector.hnsw_service - WARNING - Node H_community_0 already exists in index
+2025-11-26 04:39:15,634 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_0 to HNSW index
+2025-11-26 04:39:15,634 - src.vector.hnsw_service - WARNING - Node H_community_1 already exists in index
+2025-11-26 04:39:15,634 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_1 to HNSW index
+2025-11-26 04:39:15,634 - src.vector.hnsw_service - WARNING - Node O_community_0 already exists in index
+2025-11-26 04:39:15,634 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_0 to HNSW index
+2025-11-26 04:39:15,634 - src.vector.hnsw_service - WARNING - Node O_community_1 already exists in index
+2025-11-26 04:39:15,634 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_1 to HNSW index
+2025-11-26 04:39:15,634 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 1/1
+2025-11-26 04:39:15,646 - src.vector.hnsw_service - INFO - HNSW index saved to data/processed/hnsw_index
+2025-11-26 04:39:15,646 - src.document_processing.indexing_pipeline - INFO - HNSW index saved: True
+2025-11-26 04:39:15,646 - src.document_processing.indexing_pipeline - INFO - Phase III completed: 0 embeddings generated and indexed
+2025-11-26 04:39:15,646 - api_service - INFO - 💾 Storing in NeonDB
+2025-11-26 04:39:15,680 - src.llm.llm_service - INFO - OpenAI client initialized successfully
+2025-11-26 04:39:15,974 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings "HTTP/1.1 200 OK"
+2025-11-26 04:39:16,218 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings/runtime "HTTP/1.1 200 OK"
+2025-11-26 04:39:17,188 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/config "HTTP/1.1 200 OK"
+2025-11-26 04:39:18,150 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/info?serialize=False "HTTP/1.1 200 OK"
+2025-11-26 04:39:18,153 - src.llm.llm_service - INFO - HF embedding client initialized: mahendraVarmaGokaraju/qwen3-embeddings
+2025-11-26 04:39:18,383 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/telemetry/py_client/initiated "HTTP/1.1 200 OK"
+2025-11-26 04:39:19,132 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/heartbeat/41f30ac9-1f6b-480e-9523-f5631997f96d "HTTP/1.1 200 OK"
+2025-11-26 04:39:21,272 - src.storage.neon_storage - INFO - ✅ NodeRAG database tables ensured

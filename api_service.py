@@ -149,6 +149,7 @@ def process_document():
         if callback_url:
             send_webhook(callback_url, "processing", {
                 "file_id": file_id,
+                "user_id": user_id,
                 "phase": "initialization",
                 "progress": 0
             })
@@ -185,6 +186,7 @@ def process_document_pipeline(org_id: str, file_id: str, user_id: str, chunks: L
         if callback_url:
             send_webhook(callback_url, "phase1_started", {
                 "file_id": file_id,
+                "user_id": user_id,
                 "phase": "graph_decomposition",
                 "progress": 10
             })
@@ -238,6 +240,7 @@ def process_document_pipeline(org_id: str, file_id: str, user_id: str, chunks: L
         if callback_url:
             send_webhook(callback_url, "phase2_started", {
                 "file_id": file_id,
+                "user_id": user_id,
                 "phase": "graph_augmentation",
                 "progress": 40
             })
@@ -258,6 +261,7 @@ def process_document_pipeline(org_id: str, file_id: str, user_id: str, chunks: L
         if callback_url:
             send_webhook(callback_url, "phase3_started", {
                 "file_id": file_id,
+                "user_id": user_id,
                 "phase": "embedding_generation",
                 "progress": 70
             })
@@ -305,6 +309,7 @@ def process_document_pipeline(org_id: str, file_id: str, user_id: str, chunks: L
         if callback_url:
             send_webhook(callback_url, "completed", {
                 "file_id": file_id,
+                "user_id": user_id,
                 "results": processing_status[file_id]["results"]
             })
         
@@ -325,6 +330,7 @@ def process_document_pipeline(org_id: str, file_id: str, user_id: str, chunks: L
         if callback_url:
             send_webhook(callback_url, "failed", {
                 "file_id": file_id,
+                "user_id": user_id,
                 "error": str(e)
             })
 
