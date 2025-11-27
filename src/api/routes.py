@@ -1,5 +1,6 @@
 import os
 import logging
+import time
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from typing import Dict, Any, List
@@ -16,6 +17,8 @@ from ..graph.graph_manager import GraphManager
 from ..graph.node_types import NodeType
 from ..config.settings import Config
 from .session_manager import session_manager
+from ..utils.performance_logger import performance_logger
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -71,13 +74,23 @@ def index_document():
                 'error': f'File not found: {file_path}'
             }), 404
         
-        # Index the document
-        result = indexing_pipeline.index_document(file_path)
+        # Generate session ID for performance tracking
+        import uuid
+        session_id = f"direct_index_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+        
+        # Index the document with performance logging
+        result = indexing_pipeline.index_document(file_path, session_id)
         
         if result['success']:
-            # Save the graph
-            save_success = indexing_pipeline.save_graph()
-            result['graph_saved'] = save_success
+            # Generate performance report if available
+            if result.get('performance_report_available'):
+                try:
+                    report_path = performance_logger.export_session_report(session_id)
+                    result['performance_report_path'] = report_path
+                    logger.info(f"Performance report generated: {report_path}")
+                except Exception as report_error:
+                    logger.warning(f"Failed to generate performance report: {report_error}")
+                    result['performance_report_error'] = str(report_error)
             
             return jsonify(result)
         else:
@@ -134,9 +147,9 @@ def upload_and_index_document():
         logger.info(f"File uploaded to session {session_id}: {file_path}")
         
         try:
-            # Index the uploaded document using session-specific pipeline
+            # Index the uploaded document using session-specific pipeline with performance logging
             logger.info(f"Starting document indexing for session {session_id}: {file.filename}")
-            result = session_data.indexing_pipeline.index_document(file_path)
+            result = session_data.indexing_pipeline.index_document(file_path, session_id)
             logger.info(f"Indexing result for session {session_id}: {result}")
             
             if result['success']:
@@ -146,6 +159,16 @@ def upload_and_index_document():
                 result['uploaded_file'] = unique_filename
                 result['original_filename'] = file.filename
                 result['session_id'] = session_id
+                
+                # Generate performance report if available
+                if result.get('performance_report_available'):
+                    try:
+                        report_path = performance_logger.export_session_report(session_id)
+                        result['performance_report_path'] = report_path
+                        logger.info(f"Performance report generated: {report_path}")
+                    except Exception as report_error:
+                        logger.warning(f"Failed to generate performance report: {report_error}")
+                        result['performance_report_error'] = str(report_error)
                 
                 # Initialize HNSW service after indexing to include new embeddings
                 try:
@@ -1573,6 +1596,140 @@ def list_sessions():
     except Exception as e:
         logger.error(f"Error listing sessions: {e}")
         return jsonify({'error': str(e)}), 500
+
+# Performance Logging Endpoints
+
+@app.route('/api/performance/report/<session_id>', methods=['GET'])
+def get_performance_report(session_id: str):
+    """Get detailed performance report for a session."""
+    try:
+        report = performance_logger.get_session_report(session_id)
+        
+        if 'error' in report:
+            return jsonify({
+                'success': False,
+                'error': report['error']
+            }), 404
+        
+        return jsonify({
+            'success': True,
+            'report': report
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting performance report for session {session_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/performance/export/<session_id>', methods=['POST'])
+def export_performance_report(session_id: str):
+    """Export performance report to file."""
+    try:
+        data = request.get_json() or {}
+        output_path = data.get('output_path')
+        
+        result_path = performance_logger.export_session_report(session_id, output_path)
+        
+        if result_path.startswith('Error:'):
+            return jsonify({
+                'success': False,
+                'error': result_path
+            }), 500
+        
+        return jsonify({
+            'success': True,
+            'report_path': result_path,
+            'message': 'Performance report exported successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error exporting performance report for session {session_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/performance/current', methods=['GET'])
+def get_current_session_performance():
+    """Get performance data for the current active session."""
+    try:
+        if not performance_logger.current_session:
+            return jsonify({
+                'success': False,
+                'error': 'No active session'
+            }), 404
+        
+        session = performance_logger.current_session
+        
+        # Calculate current duration if session is still active
+        current_time = time.time()
+        current_duration = current_time - session.start_time
+        
+        response = {
+            'success': True,
+            'session_id': session.session_id,
+            'file_name': session.file_name,
+            'file_size': session.file_size,
+            'status': session.status,
+            'current_duration': current_duration,
+            'current_duration_formatted': performance_logger.current_session.total_duration_formatted if session.total_duration else f"{current_duration:.2f}s",
+            'steps_completed': len([s for s in session.steps if s.status == 'completed']),
+            'total_steps': len(session.steps),
+            'current_step': performance_logger.current_step.step_name if performance_logger.current_step else None
+        }
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Error getting current session performance: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/performance/logs/stream', methods=['GET'])
+def stream_performance_logs():
+    """Stream performance logs in real-time (for monitoring active sessions)."""
+    try:
+        # This is a simple implementation - could be enhanced with WebSockets for real-time streaming
+        log_file_path = os.path.join(performance_logger.log_dir, "performance.log")
+        
+        if not os.path.exists(log_file_path):
+            return jsonify({
+                'success': False,
+                'error': 'Performance log file not found'
+            }), 404
+        
+        # Read last N lines from log file
+        lines_to_read = int(request.args.get('lines', 100))
+        
+        with open(log_file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            recent_lines = lines[-lines_to_read:] if len(lines) > lines_to_read else lines
+        
+        # Parse JSON lines
+        log_entries = []
+        for line in recent_lines:
+            try:
+                if line.strip():
+                    log_entries.append(json.loads(line.strip()))
+            except json.JSONDecodeError:
+                continue
+        
+        return jsonify({
+            'success': True,
+            'log_entries': log_entries,
+            'total_entries': len(log_entries)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error streaming performance logs: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.errorhandler(404)
 def not_found(error):

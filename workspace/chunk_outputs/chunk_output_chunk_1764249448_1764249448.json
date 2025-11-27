@@ -1,0 +1,345 @@
+{
+  "input": {
+    "chunk_id": "chunk_1764249448",
+    "chunk_text": "You will receive a set of text data from the same cluster. Your task is to extract distinct categories of high-level information, such as concepts, themes, relevant theories, potential impacts, and key insights. Each piece of information should include a concise title and a corresponding description, reflecting the unique perspectives within the text cluster.Please do not attempt to include all possible information; instead, select the elements that have the most significance and diversity in this cluster. Avoid redundant information—if there are highly similar elements, combine them into a single, comprehensive entry. Ensure that the high-level information reflects the varied dimensions within the text, providing a well-rounded overview.",
+    "chatgpt_model": "gpt-4",
+    "text_length": 748,
+    "processing_timestamp": 1764249448.337594,
+    "session_id": "chunk_chunk_1764249448_1764249448"
+  },
+  "processing_results": {
+    "phase1_decomposition": {
+      "success": true,
+      "chunks_processed": 1,
+      "chunks_failed": 0
+    },
+    "phase2_augmentation": {
+      "success": true,
+      "important_entities": 1,
+      "attribute_nodes": 1,
+      "communities_detected": 2,
+      "high_level_nodes": 2,
+      "overview_nodes": 2
+    },
+    "phase3_embedding": {
+      "success": true,
+      "embeddings_generated": 21,
+      "hnsw_indexed": 17
+    },
+    "graph_stats": {
+      "total_nodes": 22,
+      "total_edges": 31,
+      "node_type_counts": {
+        "T": 1,
+        "S": 9,
+        "N": 7,
+        "A": 1,
+        "H": 2,
+        "O": 2
+      },
+      "num_communities": 2,
+      "is_connected": true
+    },
+    "graph_data": {
+      "nodes_by_type": {
+        "T": [
+          {
+            "id": "T_aea9dce2-719a-4291-b977-c1bbcdf2d886",
+            "content": "You will receive a set of text data from the same cluster. Your task is to extract distinct categories of high-level information, such as concepts, themes, relevant theories, potential impacts, and key insights. Each piece of information should include a concise title and a corresponding description, reflecting the unique perspectives within the text cluster.Please do not attempt to include all possible information; instead, select the elements that have the most significance and diversity in this cluster. Avoid redundant information—if there are highly similar elements, combine them into a single, comprehensive entry. Ensure that the high-level information reflects the varied dimensions within the text, providing a well-rounded overview.",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "model": "gpt-4",
+              "source": "chunk_api",
+              "node_type": "text"
+            }
+          }
+        ],
+        "S": [
+          {
+            "id": "S_aea9dce2-719a-4291-b977-c1bbcdf2d886_0",
+            "content": "Text data analysis",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "semantic_index": 0,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_aea9dce2-719a-4291-b977-c1bbcdf2d886_1",
+            "content": "Extracting distinct categories of high-level information",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "semantic_index": 1,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_aea9dce2-719a-4291-b977-c1bbcdf2d886_2",
+            "content": "Identifying concepts, themes, theories, impacts, and insights",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "semantic_index": 2,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_aea9dce2-719a-4291-b977-c1bbcdf2d886_3",
+            "content": "Concise titles and corresponding descriptions",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "semantic_index": 3,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_aea9dce2-719a-4291-b977-c1bbcdf2d886_4",
+            "content": "Significance and diversity in the text cluster",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "semantic_index": 4,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_aea9dce2-719a-4291-b977-c1bbcdf2d886_5",
+            "content": "Avoiding redundant information",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "semantic_index": 5,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_aea9dce2-719a-4291-b977-c1bbcdf2d886_6",
+            "content": "Combining highly similar elements into comprehensive entries",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "semantic_index": 6,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_aea9dce2-719a-4291-b977-c1bbcdf2d886_7",
+            "content": "Reflecting varied dimensions within the text",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "semantic_index": 7,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_aea9dce2-719a-4291-b977-c1bbcdf2d886_8",
+            "content": "Providing a well-rounded overview",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "semantic_index": 8,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          }
+        ],
+        "N": [
+          {
+            "id": "N_aea9dce2-719a-4291-b977-c1bbcdf2d886_0",
+            "content": "{",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "entity_index": 0,
+              "source_file": null,
+              "mentions": [
+                "aea9dce2-719a-4291-b977-c1bbcdf2d886"
+              ],
+              "node_type": "entity"
+            }
+          },
+          {
+            "id": "N_aea9dce2-719a-4291-b977-c1bbcdf2d886_1",
+            "content": "People\": [],",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "entity_index": 1,
+              "source_file": null,
+              "mentions": [
+                "aea9dce2-719a-4291-b977-c1bbcdf2d886"
+              ],
+              "node_type": "entity"
+            }
+          },
+          {
+            "id": "N_aea9dce2-719a-4291-b977-c1bbcdf2d886_2",
+            "content": "Places\": [],",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "entity_index": 2,
+              "source_file": null,
+              "mentions": [
+                "aea9dce2-719a-4291-b977-c1bbcdf2d886"
+              ],
+              "node_type": "entity"
+            }
+          },
+          {
+            "id": "N_aea9dce2-719a-4291-b977-c1bbcdf2d886_3",
+            "content": "Organizations\": [],",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "entity_index": 3,
+              "source_file": null,
+              "mentions": [
+                "aea9dce2-719a-4291-b977-c1bbcdf2d886"
+              ],
+              "node_type": "entity"
+            }
+          },
+          {
+            "id": "N_aea9dce2-719a-4291-b977-c1bbcdf2d886_4",
+            "content": "Objects\": [],",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "entity_index": 4,
+              "source_file": null,
+              "mentions": [
+                "aea9dce2-719a-4291-b977-c1bbcdf2d886"
+              ],
+              "node_type": "entity"
+            }
+          },
+          {
+            "id": "N_aea9dce2-719a-4291-b977-c1bbcdf2d886_5",
+            "content": "Events\": []",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "entity_index": 5,
+              "source_file": null,
+              "mentions": [
+                "aea9dce2-719a-4291-b977-c1bbcdf2d886"
+              ],
+              "node_type": "entity"
+            }
+          },
+          {
+            "id": "N_aea9dce2-719a-4291-b977-c1bbcdf2d886_6",
+            "content": "}",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "entity_index": 6,
+              "source_file": null,
+              "mentions": [
+                "aea9dce2-719a-4291-b977-c1bbcdf2d886"
+              ],
+              "node_type": "entity"
+            }
+          }
+        ],
+        "R": [],
+        "A": [
+          {
+            "id": "A_N_aea9dce2-719a-4291-b977-c1bbcdf2d886_0",
+            "content": "The entity is a complex and multifaceted character, with a rich tapestry of relationships and connections to other entities. Its essence lies in its ability to adapt and evolve, constantly changing and growing in response to its environment. This entity is deeply intertwined with others, each interaction shaping its identity and purpose. Its story is one of resilience, transformation, and interconnectedness, a testament to the power of relationships in shaping our lives.",
+            "metadata": {
+              "entity_id": "N_aea9dce2-719a-4291-b977-c1bbcdf2d886_0",
+              "entity_name": "{",
+              "node_type": "attribute"
+            }
+          }
+        ],
+        "H": [
+          {
+            "id": "H_community_0",
+            "content": "1. Concept of Interconnectedness:\nDescription: The text emphasizes the concept of interconnectedness, highlighting how the entity is deeply intertwined with other entities, with each interaction shaping its identity and purpose. This concept underscores the importance of relationships in shaping our lives and the interconnected nature of the world.\n\n2. Theme of Adaptation and Evolution:\nDescription: The entity is described as being able to adapt and evolve, constantly changing and growing in response to its environment. This theme of adaptation and evolution reflects the entity's resilience and ability to transform in the face of challenges, showcasing its dynamic nature.\n\n3. Key Insight on Relationships:\nDescription: Relationships play a significant role in the entity's story, serving as a key driver in shaping its identity and purpose. The text highlights the power of relationships in influencing the entity's growth and development, underscoring the importance of meaningful connections in our lives.\n\n4. Theory of Resilience:\nDescription: The entity's story is characterized by resilience, as it navigates challenges and undergoes transformation. This theory of resilience explores how the entity's ability to bounce back and thrive in the face of adversity contributes to its growth and evolution, illustrating the power of resilience in overcoming obstacles.",
+            "metadata": {
+              "community_id": 0,
+              "node_count": 2,
+              "node_type": "high_level"
+            }
+          },
+          {
+            "id": "H_community_1",
+            "content": "1. Conceptual Frameworks:\n   - Description: The text cluster discusses various conceptual frameworks used in data analysis, such as statistical methods, machine learning algorithms, and data visualization techniques.\n\n2. Emerging Themes:\n   - Description: Emerging themes in the text cluster include the importance of data quality, the impact of big data on decision-making, and the role of ethics in data analysis.\n\n3. Theoretical Perspectives:\n   - Description: Theoretical perspectives explored in the text cluster encompass theories from fields like statistics, computer science, and psychology, offering a multidisciplinary approach to data analysis.\n\n4. Potential Impacts:\n   - Description: Potential impacts of data analysis highlighted in the text cluster include improved business strategies, enhanced decision-making processes, and potential ethical implications of data usage.\n\n5. Key Insights:\n   - Description: Key insights from the text cluster include the importance of data literacy, the need for continuous learning in data analysis, and the potential for data-driven innovation in various industries.",
+            "metadata": {
+              "community_id": 1,
+              "node_count": 16,
+              "node_type": "high_level"
+            }
+          }
+        ],
+        "O": [
+          {
+            "id": "O_community_0",
+            "content": "\"Interconnectedness, Adaptation, Relationships, Resilience: Key Insights\"",
+            "metadata": {
+              "community_id": 0,
+              "high_level_node": "H_community_0",
+              "node_type": "overview"
+            }
+          },
+          {
+            "id": "O_community_1",
+            "content": "Data Analysis: Frameworks, Themes, Perspectives, Impacts, Insights",
+            "metadata": {
+              "community_id": 1,
+              "high_level_node": "H_community_1",
+              "node_type": "overview"
+            }
+          }
+        ]
+      },
+      "total_nodes": 22,
+      "total_edges": 31
+    }
+  },
+  "performance_metrics": {
+    "session_id": "chunk_chunk_1764249448_1764249448",
+    "total_duration": 19.915022134780884,
+    "total_duration_formatted": "19.92s",
+    "processing_rate": 37.559586674706445,
+    "steps_summary": {
+      "total_steps": 5,
+      "successful_steps": 5,
+      "failed_steps": 0,
+      "step_breakdown": {
+        "Data Preparation": {
+          "duration": 0.0004119873046875,
+          "percentage": 0.0020687263207605413,
+          "status": "completed",
+          "sub_steps": 0
+        },
+        "Graph Decomposition": {
+          "duration": 3.291496753692627,
+          "percentage": 16.527708236608703,
+          "status": "completed",
+          "sub_steps": 1
+        },
+        "Graph Augmentation": {
+          "duration": 10.261551856994629,
+          "percentage": 51.52669069382148,
+          "status": "completed",
+          "sub_steps": 4
+        },
+        "Embedding Generation & Vector Storage": {
+          "duration": 3.4957146644592285,
+          "percentage": 17.55315480344903,
+          "status": "completed",
+          "sub_steps": 5
+        },
+        "Graph Data Extraction": {
+          "duration": 0.0008535385131835938,
+          "percentage": 0.004285902909908992,
+          "status": "completed",
+          "sub_steps": 0
+        }
+      },
+      "processing_rate": 37.559586674706445
+    },
+    "success": true
+  },
+  "errors": []
+}

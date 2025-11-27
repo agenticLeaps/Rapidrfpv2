@@ -1,0 +1,780 @@
+{
+  "input": {
+    "chunk_id": "chunk_1764249641",
+    "chunk_text": "You will receive a set of text data from the same cluster. Your task is to extract distinct categories of high-level information, such as concepts, themes, relevant theories, potential impacts, and key insights. Each piece of information should include a concise title and a corresponding description, reflecting the unique perspectives within the text cluster.Please do not attempt to include all possible information; instead, select the elements that have the most significance and diversity in this cluster. Avoid redundant information—if there are highly similar elements, combine them into a single, comprehensive entry. Ensure that the high-level information reflects the varied dimensions within the text, providing a well-rounded overview.",
+    "chatgpt_model": "gpt-4o",
+    "text_length": 748,
+    "processing_timestamp": 1764249641.9370391,
+    "session_id": "chunk_chunk_1764249641_1764249641"
+  },
+  "processing_results": {
+    "phase1_decomposition": {
+      "success": true,
+      "chunks_processed": 1,
+      "chunks_failed": 0
+    },
+    "phase2_augmentation": {
+      "success": true,
+      "important_entities": 3,
+      "attribute_nodes": 3,
+      "communities_detected": 4,
+      "high_level_nodes": 4,
+      "overview_nodes": 4
+    },
+    "phase3_embedding": {
+      "success": true,
+      "embeddings_generated": 58,
+      "hnsw_indexed": 33
+    },
+    "graph_stats": {
+      "total_nodes": 60,
+      "total_edges": 124,
+      "node_type_counts": {
+        "T": 2,
+        "S": 19,
+        "N": 15,
+        "A": 4,
+        "H": 4,
+        "O": 4,
+        "R": 12
+      },
+      "num_communities": 4,
+      "is_connected": true
+    },
+    "graph_data": {
+      "nodes_by_type": {
+        "T": [
+          {
+            "id": "T_aea9dce2-719a-4291-b977-c1bbcdf2d886",
+            "content": "You will receive a set of text data from the same cluster. Your task is to extract distinct categories of high-level information, such as concepts, themes, relevant theories, potential impacts, and key insights. Each piece of information should include a concise title and a corresponding description, reflecting the unique perspectives within the text cluster.Please do not attempt to include all possible information; instead, select the elements that have the most significance and diversity in this cluster. Avoid redundant information—if there are highly similar elements, combine them into a single, comprehensive entry. Ensure that the high-level information reflects the varied dimensions within the text, providing a well-rounded overview.",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "model": "gpt-4",
+              "source": "chunk_api",
+              "node_type": "text"
+            }
+          },
+          {
+            "id": "T_75f08310-f770-4a14-b502-f1f34d290cae",
+            "content": "You will receive a set of text data from the same cluster. Your task is to extract distinct categories of high-level information, such as concepts, themes, relevant theories, potential impacts, and key insights. Each piece of information should include a concise title and a corresponding description, reflecting the unique perspectives within the text cluster.Please do not attempt to include all possible information; instead, select the elements that have the most significance and diversity in this cluster. Avoid redundant information—if there are highly similar elements, combine them into a single, comprehensive entry. Ensure that the high-level information reflects the varied dimensions within the text, providing a well-rounded overview.",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "model": "gpt-4o",
+              "source": "chunk_api",
+              "node_type": "text"
+            }
+          }
+        ],
+        "S": [
+          {
+            "id": "S_aea9dce2-719a-4291-b977-c1bbcdf2d886_0",
+            "content": "Text data analysis",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "semantic_index": 0,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_aea9dce2-719a-4291-b977-c1bbcdf2d886_1",
+            "content": "Extracting distinct categories of high-level information",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "semantic_index": 1,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_aea9dce2-719a-4291-b977-c1bbcdf2d886_2",
+            "content": "Identifying concepts, themes, theories, impacts, and insights",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "semantic_index": 2,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_aea9dce2-719a-4291-b977-c1bbcdf2d886_3",
+            "content": "Concise titles and corresponding descriptions",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "semantic_index": 3,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_aea9dce2-719a-4291-b977-c1bbcdf2d886_4",
+            "content": "Significance and diversity in the text cluster",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "semantic_index": 4,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_aea9dce2-719a-4291-b977-c1bbcdf2d886_5",
+            "content": "Avoiding redundant information",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "semantic_index": 5,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_aea9dce2-719a-4291-b977-c1bbcdf2d886_6",
+            "content": "Combining highly similar elements into comprehensive entries",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "semantic_index": 6,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_aea9dce2-719a-4291-b977-c1bbcdf2d886_7",
+            "content": "Reflecting varied dimensions within the text",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "semantic_index": 7,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_aea9dce2-719a-4291-b977-c1bbcdf2d886_8",
+            "content": "Providing a well-rounded overview",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "semantic_index": 8,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_75f08310-f770-4a14-b502-f1f34d290cae_0",
+            "content": "Text data from the same cluster",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "semantic_index": 0,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_75f08310-f770-4a14-b502-f1f34d290cae_1",
+            "content": "Extract distinct categories of high-level information",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "semantic_index": 1,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_75f08310-f770-4a14-b502-f1f34d290cae_2",
+            "content": "Concepts, themes, relevant theories, potential impacts, key insights",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "semantic_index": 2,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_75f08310-f770-4a14-b502-f1f34d290cae_3",
+            "content": "Concise titles and corresponding descriptions",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "semantic_index": 3,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_75f08310-f770-4a14-b502-f1f34d290cae_4",
+            "content": "Unique perspectives within the text cluster",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "semantic_index": 4,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_75f08310-f770-4a14-b502-f1f34d290cae_5",
+            "content": "Significant and diverse elements",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "semantic_index": 5,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_75f08310-f770-4a14-b502-f1f34d290cae_6",
+            "content": "Avoid redundant information",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "semantic_index": 6,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_75f08310-f770-4a14-b502-f1f34d290cae_7",
+            "content": "Well-rounded overview",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "semantic_index": 7,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_75f08310-f770-4a14-b502-f1f34d290cae_8",
+            "content": "Varied dimensions within the text",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "semantic_index": 8,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          },
+          {
+            "id": "S_75f08310-f770-4a14-b502-f1f34d290cae_9",
+            "content": "Comprehensive entry for similar elements",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "semantic_index": 9,
+              "source_file": null,
+              "node_type": "semantic"
+            }
+          }
+        ],
+        "N": [
+          {
+            "id": "N_aea9dce2-719a-4291-b977-c1bbcdf2d886_0",
+            "content": "{",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "entity_index": 0,
+              "source_file": null,
+              "mentions": [
+                "aea9dce2-719a-4291-b977-c1bbcdf2d886"
+              ],
+              "node_type": "entity"
+            }
+          },
+          {
+            "id": "N_aea9dce2-719a-4291-b977-c1bbcdf2d886_1",
+            "content": "People\": [],",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "entity_index": 1,
+              "source_file": null,
+              "mentions": [
+                "aea9dce2-719a-4291-b977-c1bbcdf2d886"
+              ],
+              "node_type": "entity"
+            }
+          },
+          {
+            "id": "N_aea9dce2-719a-4291-b977-c1bbcdf2d886_2",
+            "content": "Places\": [],",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "entity_index": 2,
+              "source_file": null,
+              "mentions": [
+                "aea9dce2-719a-4291-b977-c1bbcdf2d886"
+              ],
+              "node_type": "entity"
+            }
+          },
+          {
+            "id": "N_aea9dce2-719a-4291-b977-c1bbcdf2d886_3",
+            "content": "Organizations\": [],",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "entity_index": 3,
+              "source_file": null,
+              "mentions": [
+                "aea9dce2-719a-4291-b977-c1bbcdf2d886"
+              ],
+              "node_type": "entity"
+            }
+          },
+          {
+            "id": "N_aea9dce2-719a-4291-b977-c1bbcdf2d886_4",
+            "content": "Objects\": [],",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "entity_index": 4,
+              "source_file": null,
+              "mentions": [
+                "aea9dce2-719a-4291-b977-c1bbcdf2d886"
+              ],
+              "node_type": "entity"
+            }
+          },
+          {
+            "id": "N_aea9dce2-719a-4291-b977-c1bbcdf2d886_5",
+            "content": "Events\": []",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "entity_index": 5,
+              "source_file": null,
+              "mentions": [
+                "aea9dce2-719a-4291-b977-c1bbcdf2d886"
+              ],
+              "node_type": "entity"
+            }
+          },
+          {
+            "id": "N_aea9dce2-719a-4291-b977-c1bbcdf2d886_6",
+            "content": "}",
+            "metadata": {
+              "chunk_id": "aea9dce2-719a-4291-b977-c1bbcdf2d886",
+              "entity_index": 6,
+              "source_file": null,
+              "mentions": [
+                "aea9dce2-719a-4291-b977-c1bbcdf2d886"
+              ],
+              "node_type": "entity"
+            }
+          },
+          {
+            "id": "N_75f08310-f770-4a14-b502-f1f34d290cae_0",
+            "content": "Dr. John Smith",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "entity_index": 0,
+              "source_file": null,
+              "mentions": [
+                "75f08310-f770-4a14-b502-f1f34d290cae"
+              ],
+              "node_type": "entity"
+            }
+          },
+          {
+            "id": "N_75f08310-f770-4a14-b502-f1f34d290cae_1",
+            "content": "cluster",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "entity_index": 1,
+              "source_file": null,
+              "mentions": [
+                "75f08310-f770-4a14-b502-f1f34d290cae"
+              ],
+              "node_type": "entity"
+            }
+          },
+          {
+            "id": "N_75f08310-f770-4a14-b502-f1f34d290cae_2",
+            "content": "text data",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "entity_index": 2,
+              "source_file": null,
+              "mentions": [
+                "75f08310-f770-4a14-b502-f1f34d290cae"
+              ],
+              "node_type": "entity"
+            }
+          },
+          {
+            "id": "N_75f08310-f770-4a14-b502-f1f34d290cae_3",
+            "content": "concepts",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "entity_index": 3,
+              "source_file": null,
+              "mentions": [
+                "75f08310-f770-4a14-b502-f1f34d290cae"
+              ],
+              "node_type": "entity"
+            }
+          },
+          {
+            "id": "N_75f08310-f770-4a14-b502-f1f34d290cae_4",
+            "content": "themes",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "entity_index": 4,
+              "source_file": null,
+              "mentions": [
+                "75f08310-f770-4a14-b502-f1f34d290cae"
+              ],
+              "node_type": "entity"
+            }
+          },
+          {
+            "id": "N_75f08310-f770-4a14-b502-f1f34d290cae_5",
+            "content": "theories",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "entity_index": 5,
+              "source_file": null,
+              "mentions": [
+                "75f08310-f770-4a14-b502-f1f34d290cae"
+              ],
+              "node_type": "entity"
+            }
+          },
+          {
+            "id": "N_75f08310-f770-4a14-b502-f1f34d290cae_6",
+            "content": "impacts",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "entity_index": 6,
+              "source_file": null,
+              "mentions": [
+                "75f08310-f770-4a14-b502-f1f34d290cae"
+              ],
+              "node_type": "entity"
+            }
+          },
+          {
+            "id": "N_75f08310-f770-4a14-b502-f1f34d290cae_7",
+            "content": "insights",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "entity_index": 7,
+              "source_file": null,
+              "mentions": [
+                "75f08310-f770-4a14-b502-f1f34d290cae"
+              ],
+              "node_type": "entity"
+            }
+          }
+        ],
+        "R": [
+          {
+            "id": "R_75f08310-f770-4a14-b502-f1f34d290cae_0",
+            "content": "Dr. John Smith analyzes text data",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "relationship_index": 0,
+              "entity1": "Dr. John Smith",
+              "relation": "analyzes",
+              "entity2": "text data",
+              "source_file": null,
+              "node_type": "relationship"
+            }
+          },
+          {
+            "id": "R_75f08310-f770-4a14-b502-f1f34d290cae_1",
+            "content": "text data belongs to cluster",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "relationship_index": 1,
+              "entity1": "text data",
+              "relation": "belongs to",
+              "entity2": "cluster",
+              "source_file": null,
+              "node_type": "relationship"
+            }
+          },
+          {
+            "id": "R_75f08310-f770-4a14-b502-f1f34d290cae_2",
+            "content": "Dr. John Smith identifies concepts",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "relationship_index": 2,
+              "entity1": "Dr. John Smith",
+              "relation": "identifies",
+              "entity2": "concepts",
+              "source_file": null,
+              "node_type": "relationship"
+            }
+          },
+          {
+            "id": "R_75f08310-f770-4a14-b502-f1f34d290cae_3",
+            "content": "Dr. John Smith identifies themes",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "relationship_index": 3,
+              "entity1": "Dr. John Smith",
+              "relation": "identifies",
+              "entity2": "themes",
+              "source_file": null,
+              "node_type": "relationship"
+            }
+          },
+          {
+            "id": "R_75f08310-f770-4a14-b502-f1f34d290cae_4",
+            "content": "Dr. John Smith discusses theories",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "relationship_index": 4,
+              "entity1": "Dr. John Smith",
+              "relation": "discusses",
+              "entity2": "theories",
+              "source_file": null,
+              "node_type": "relationship"
+            }
+          },
+          {
+            "id": "R_75f08310-f770-4a14-b502-f1f34d290cae_5",
+            "content": "Dr. John Smith evaluates impacts",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "relationship_index": 5,
+              "entity1": "Dr. John Smith",
+              "relation": "evaluates",
+              "entity2": "impacts",
+              "source_file": null,
+              "node_type": "relationship"
+            }
+          },
+          {
+            "id": "R_75f08310-f770-4a14-b502-f1f34d290cae_6",
+            "content": "Dr. John Smith provides insights",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "relationship_index": 6,
+              "entity1": "Dr. John Smith",
+              "relation": "provides",
+              "entity2": "insights",
+              "source_file": null,
+              "node_type": "relationship"
+            }
+          },
+          {
+            "id": "R_75f08310-f770-4a14-b502-f1f34d290cae_7",
+            "content": "concepts related to text data",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "relationship_index": 7,
+              "entity1": "concepts",
+              "relation": "related to",
+              "entity2": "text data",
+              "source_file": null,
+              "node_type": "relationship"
+            }
+          },
+          {
+            "id": "R_75f08310-f770-4a14-b502-f1f34d290cae_8",
+            "content": "themes emerge from text data",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "relationship_index": 8,
+              "entity1": "themes",
+              "relation": "emerge from",
+              "entity2": "text data",
+              "source_file": null,
+              "node_type": "relationship"
+            }
+          },
+          {
+            "id": "R_75f08310-f770-4a14-b502-f1f34d290cae_9",
+            "content": "theories apply to text data",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "relationship_index": 9,
+              "entity1": "theories",
+              "relation": "apply to",
+              "entity2": "text data",
+              "source_file": null,
+              "node_type": "relationship"
+            }
+          },
+          {
+            "id": "R_75f08310-f770-4a14-b502-f1f34d290cae_10",
+            "content": "impacts result from text data",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "relationship_index": 10,
+              "entity1": "impacts",
+              "relation": "result from",
+              "entity2": "text data",
+              "source_file": null,
+              "node_type": "relationship"
+            }
+          },
+          {
+            "id": "R_75f08310-f770-4a14-b502-f1f34d290cae_11",
+            "content": "insights derived from text data",
+            "metadata": {
+              "chunk_id": "75f08310-f770-4a14-b502-f1f34d290cae",
+              "relationship_index": 11,
+              "entity1": "insights",
+              "relation": "derived from",
+              "entity2": "text data",
+              "source_file": null,
+              "node_type": "relationship"
+            }
+          }
+        ],
+        "A": [
+          {
+            "id": "A_N_aea9dce2-719a-4291-b977-c1bbcdf2d886_0",
+            "content": "The entity is a complex and multifaceted character, with a rich tapestry of relationships and connections to other entities. Its essence lies in its ability to adapt and evolve, constantly changing and growing in response to its environment. This entity is deeply intertwined with others, each interaction shaping its identity and purpose. Its story is one of resilience, transformation, and interconnectedness, a testament to the power of relationships in shaping our lives.",
+            "metadata": {
+              "entity_id": "N_aea9dce2-719a-4291-b977-c1bbcdf2d886_0",
+              "entity_name": "{",
+              "node_type": "attribute"
+            }
+          },
+          {
+            "id": "A_N_75f08310-f770-4a14-b502-f1f34d290cae_2",
+            "content": "Text data is a versatile entity that encompasses written information in digital form. It holds the power to convey messages, insights, and emotions through words. Text data can be analyzed, processed, and utilized in various fields such as natural language processing, sentiment analysis, and machine learning. Its flexibility allows for diverse applications, from social media sentiment tracking to automated customer service. Text data is a valuable resource that fuels innovation and drives decision-making in the digital age.",
+            "metadata": {
+              "entity_id": "N_75f08310-f770-4a14-b502-f1f34d290cae_2",
+              "entity_name": "text data",
+              "node_type": "attribute"
+            }
+          },
+          {
+            "id": "A_N_75f08310-f770-4a14-b502-f1f34d290cae_0",
+            "content": "Dr. John Smith is a brilliant and respected neurosurgeon known for his exceptional surgical skills and compassionate patient care. With a distinguished career spanning decades, Dr. Smith has earned a reputation as a trailblazer in the field of neurosurgery, pioneering innovative techniques and treatments. His dedication to advancing medical knowledge and improving patient outcomes is unwavering, making him a revered figure among his colleagues and patients alike. Beyond his professional achievements, Dr. Smith is also a devoted family man and philanthropist, using his success to give back to his community and support charitable causes. Dr. John Smith's legacy as a healer and humanitarian is truly inspiring, leaving a lasting impact on all who have the privilege of knowing him.",
+            "metadata": {
+              "entity_id": "N_75f08310-f770-4a14-b502-f1f34d290cae_0",
+              "entity_name": "Dr. John Smith",
+              "node_type": "attribute"
+            }
+          },
+          {
+            "id": "A_N_75f08310-f770-4a14-b502-f1f34d290cae_3",
+            "content": "Concepts are the building blocks of knowledge, representing abstract ideas or mental constructs that help us make sense of the world. They serve as the foundation for understanding and communication, allowing us to categorize, analyze, and interpret information. Concepts can be simple or complex, concrete or abstract, and they are often interconnected in intricate networks. Through concepts, we create meaning, develop theories, and navigate the complexities of our environment. They are essential tools for human cognition and play a crucial role in shaping our perception and understanding of reality.",
+            "metadata": {
+              "entity_id": "N_75f08310-f770-4a14-b502-f1f34d290cae_3",
+              "entity_name": "concepts",
+              "node_type": "attribute"
+            }
+          }
+        ],
+        "H": [
+          {
+            "id": "H_community_0",
+            "content": "Concepts:\n- Text data analysis: The process of examining and interpreting text data to uncover patterns, trends, and insights.\n- High-level information: Extracting key elements from text data to identify important concepts and themes.\n\nThemes:\n- Information extraction: Identifying and extracting specific categories of high-level information from text data.\n- Varied dimensions: Exploring different perspectives and aspects within the text cluster to gain a comprehensive understanding.\n\nRelevant theories:\n- Natural Language Processing (NLP): The branch of artificial intelligence that focuses on the interaction between computers and human language, used in text data analysis.\n- Information retrieval: The study of techniques for searching, retrieving, and organizing information from text data.\n\nPotential impacts:\n- Improved decision-making: Utilizing insights from text data analysis to make informed decisions in various fields.\n- Enhanced understanding: Gaining deeper insights into trends, patterns, and relationships within text data for better comprehension.\n\nKey insights:\n- Data-driven strategies: Using insights from text data analysis to develop data-driven strategies and solutions.\n- Actionable intelligence: Transforming raw text data into actionable intelligence for business, research, or other applications.",
+            "metadata": {
+              "community_id": 0,
+              "node_count": 18,
+              "node_type": "high_level"
+            }
+          },
+          {
+            "id": "H_community_1",
+            "content": "1. Concept: Text Data Analysis\nDescription: Dr. John Smith specializes in analyzing text data, using various techniques and tools to extract meaningful insights from the information contained within the data.\n\n2. Theme: Clustering\nDescription: The text data discussed in the cluster is related to the concept of clustering, a method used to group similar data points together based on certain characteristics or features.\n\n3. Theory: Data Analysis Theories\nDescription: Various theories and methodologies related to data analysis are likely being applied by Dr. John Smith in the analysis of text data within the cluster, including statistical analysis, machine learning algorithms, and natural language processing techniques.\n\n4. Impact: Decision-Making\nDescription: The insights gained from analyzing text data can have a significant impact on decision-making processes within various industries, helping to inform strategic choices and improve overall efficiency.\n\n5. Insight: Data-driven Strategies\nDescription: Through the analysis of text data, Dr. John Smith can provide valuable insights that can inform data-driven strategies for organizations, enabling them to make more informed decisions and drive better outcomes.",
+            "metadata": {
+              "community_id": 1,
+              "node_count": 23,
+              "node_type": "high_level"
+            }
+          },
+          {
+            "id": "H_community_2",
+            "content": "Title: Text Data Analysis for Actionable Intelligence\n\nDescription: The text data within this cluster emphasizes the importance of utilizing text data analysis to extract high-level information for actionable intelligence. By examining and interpreting text data, key concepts and themes can be identified, leading to improved decision-making and enhanced understanding. This process involves leveraging theories such as Natural Language Processing (NLP) and information retrieval to uncover patterns, trends, and insights within the data. Ultimately, the goal is to transform raw text data into data-driven strategies and solutions that can be applied in various fields, showcasing the power of text data analysis in generating actionable intelligence.",
+            "metadata": {
+              "community_id": 2,
+              "node_count": 4,
+              "node_type": "high_level"
+            }
+          },
+          {
+            "id": "H_community_3",
+            "content": "Concepts:\n- Data clustering: The process of grouping similar data points together based on certain criteria.\n- Text analysis: The examination of textual data to extract meaningful insights and patterns.\n- High-level information extraction: The process of identifying key elements and themes from a set of text data.\n\nThemes:\n- Information organization: The importance of structuring and categorizing data to make it more manageable and understandable.\n- Data-driven decision making: Utilizing insights from text analysis to inform strategic choices and actions.\n- Knowledge discovery: Uncovering new insights and trends from text data that can lead to innovation and improvement.\n\nRelevant theories:\n- K-means clustering: A popular clustering algorithm that partitions data into k clusters based on similarity.\n- Natural language processing: The field of AI that focuses on the interaction between computers and human language, enabling text analysis.\n- Information retrieval: The study of retrieving relevant information from a large amount of unstructured data, such as text documents.\n\nPotential impacts:\n- Improved data organization: Enhancing the efficiency and effectiveness of managing large volumes of text data.\n- Enhanced decision-making: Providing valuable insights that can drive more informed and strategic decisions.\n- Innovation and discovery: Uncovering hidden patterns and trends in text data that can lead to new ideas and solutions.\n\nKey insights:\n- Text data clustering can help identify common themes and topics within a large dataset.\n- Utilizing text analysis techniques can reveal valuable information that may have been previously overlooked.\n- Applying relevant theories and methodologies can lead to impactful outcomes in various industries and fields.",
+            "metadata": {
+              "community_id": 3,
+              "node_count": 11,
+              "node_type": "high_level"
+            }
+          }
+        ],
+        "O": [
+          {
+            "id": "O_community_0",
+            "content": "Text Data Analysis for Actionable Intelligence",
+            "metadata": {
+              "community_id": 0,
+              "high_level_node": "H_community_0",
+              "node_type": "overview"
+            }
+          },
+          {
+            "id": "O_community_1",
+            "content": "Text Data Analysis for Data-Driven Decision-Making",
+            "metadata": {
+              "community_id": 1,
+              "high_level_node": "H_community_1",
+              "node_type": "overview"
+            }
+          },
+          {
+            "id": "O_community_2",
+            "content": "Text Data Analysis for Actionable Insights",
+            "metadata": {
+              "community_id": 2,
+              "high_level_node": "H_community_2",
+              "node_type": "overview"
+            }
+          },
+          {
+            "id": "O_community_3",
+            "content": "Text Analysis for Data Clustering and Decision Making",
+            "metadata": {
+              "community_id": 3,
+              "high_level_node": "H_community_3",
+              "node_type": "overview"
+            }
+          }
+        ]
+      },
+      "total_nodes": 60,
+      "total_edges": 124
+    }
+  },
+  "performance_metrics": {
+    "session_id": "chunk_chunk_1764249641_1764249641",
+    "total_duration": 31.247594118118286,
+    "total_duration_formatted": "31.25s",
+    "processing_rate": 23.93784293192311,
+    "steps_summary": {
+      "total_steps": 5,
+      "successful_steps": 5,
+      "failed_steps": 0,
+      "step_breakdown": {
+        "Data Preparation": {
+          "duration": 0.0004718303680419922,
+          "percentage": 0.0015099734279011609,
+          "status": "completed",
+          "sub_steps": 0
+        },
+        "Graph Decomposition": {
+          "duration": 5.564192771911621,
+          "percentage": 17.806787783016347,
+          "status": "completed",
+          "sub_steps": 1
+        },
+        "Graph Augmentation": {
+          "duration": 17.66679310798645,
+          "percentage": 56.53809071253494,
+          "status": "completed",
+          "sub_steps": 4
+        },
+        "Embedding Generation & Vector Storage": {
+          "duration": 8.013223886489868,
+          "percentage": 25.644290745070712,
+          "status": "completed",
+          "sub_steps": 5
+        },
+        "Graph Data Extraction": {
+          "duration": 0.0003998279571533203,
+          "percentage": 0.0012795479730117467,
+          "status": "completed",
+          "sub_steps": 0
+        }
+      },
+      "processing_rate": 23.93784293192311
+    },
+    "success": true
+  },
+  "errors": []
+}
