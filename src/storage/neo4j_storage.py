@@ -309,7 +309,21 @@ class Neo4jStorage:
                     })
                 
                 search_time = time.time() - start_time
-                logger.info(f"🔍 Found {len(results)} search results in {search_time:.2f}s for query: '{query[:50]}...'")
+                logger.info(f"🔍 SEARCH RESULT: Found {len(results)} results in {search_time:.2f}s for org_id='{org_id}', query='{query[:50]}...'")
+                
+                # Additional diagnostic logging
+                if len(results) == 0:
+                    # Check if ANY data exists for this org_id
+                    count_query = "MATCH (n:NodeEmbedding {org_id: $org_id}) RETURN count(n) as total_nodes"
+                    count_result = session.run(count_query, org_id=org_id)
+                    total_nodes = count_result.single()["total_nodes"] if count_result.single() else 0
+                    logger.warning(f"⚠️ NO SEARCH RESULTS: org_id='{org_id}' has {total_nodes} total nodes in database")
+                    
+                    if total_nodes == 0:
+                        logger.error(f"❌ EMPTY DATABASE: No data found for org_id='{org_id}' - database might be empty or org_id mismatch")
+                    else:
+                        logger.warning(f"⚠️ QUERY MISMATCH: Database has {total_nodes} nodes for org_id='{org_id}' but query '{query}' found no matches")
+                
                 return results
                 
         except Exception as e:

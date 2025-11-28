@@ -718,6 +718,13 @@ def generate_response():
             return jsonify({"error": "temperature must be between 0.0 and 2.0"}), 400
         
         logger.info(f"📥 INCOMING REQUEST: org_id={org_id}, user_id={user_id}, query='{query}', max_tokens={max_tokens}, temperature={temperature}")
+        
+        # Diagnostic logging for Neo4j connection
+        neo4j_uri = os.getenv("NEO4J_URI", "NOT_SET")
+        neo4j_user = os.getenv("NEO4J_USERNAME", "NOT_SET")
+        neo4j_pass = "SET" if os.getenv("NEO4J_PASSWORD") else "NOT_SET"
+        logger.info(f"🔧 NEO4J CONFIG: URI={neo4j_uri[:20]}..., USER={neo4j_user}, PASS={neo4j_pass}")
+        
         logger.info(f"🤖 Generating NodeRAG response for org_id: {org_id}, user_id: {user_id}, query: '{query[:50]}...'")
         
         # Get LLM service for token tracking
