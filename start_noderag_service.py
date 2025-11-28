@@ -27,7 +27,9 @@ logger = logging.getLogger(__name__)
 def check_environment():
     """Check required environment variables"""
     required_env_vars = [
-        "NEON_DATABASE_URL",
+        "NEO4J_URI",
+        "NEO4J_USERNAME", 
+        "NEO4J_PASSWORD",
         "OPENAI_API_KEY"
     ]
     

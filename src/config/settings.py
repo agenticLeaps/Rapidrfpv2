@@ -49,28 +49,33 @@ class Config:
     CHUNK_SIZE = get_int_config("CHUNK_SIZE", 512)
     CHUNK_OVERLAP = get_int_config("CHUNK_OVERLAP", 50)
     
-    # Graph Settings
-    MAX_ENTITIES_PER_CHUNK = get_int_config("MAX_ENTITIES_PER_CHUNK", 20)
-    MAX_RELATIONSHIPS_PER_CHUNK = get_int_config("MAX_RELATIONSHIPS_PER_CHUNK", 15)
-    IMPORTANT_ENTITY_PERCENTAGE = get_float_config("IMPORTANT_ENTITY_PERCENTAGE", 0.2)
+    # Graph Settings - Ultra-optimized for maximum speed with GPT-5-nano
+    MAX_ENTITIES_PER_CHUNK = get_int_config("MAX_ENTITIES_PER_CHUNK", 4)
+    MAX_RELATIONSHIPS_PER_CHUNK = get_int_config("MAX_RELATIONSHIPS_PER_CHUNK", 3)
+    IMPORTANT_ENTITY_PERCENTAGE = get_float_config("IMPORTANT_ENTITY_PERCENTAGE", 0.05)
     
     # Community Detection Settings
     LEIDEN_RESOLUTION = get_float_config("LEIDEN_RESOLUTION", 1.0)
     LEIDEN_RANDOM_STATE = get_int_config("LEIDEN_RANDOM_STATE", 42)
     
-    # LLM Generation Settings
-    DEFAULT_MAX_LENGTH = get_int_config("DEFAULT_MAX_LENGTH", 1024)
+    # LLM Generation Settings - Ultra-reduced for maximum speed
+    DEFAULT_MAX_LENGTH = get_int_config("DEFAULT_MAX_LENGTH", 256)
     DEFAULT_TEMPERATURE = get_float_config("DEFAULT_TEMPERATURE", 0.7)
     DEFAULT_TOP_P = get_float_config("DEFAULT_TOP_P", 0.9)
     
     # Batch Processing
     DEFAULT_BATCH_SIZE = get_int_config("DEFAULT_BATCH_SIZE", 16)
     
-    # Storage
+    # Storage - migrated from NeonDB to Neo4j
     DATA_DIR = get_config_value("DATA_DIR", "data")
     GRAPH_DB_PATH = get_config_value("GRAPH_DB_PATH", "data/processed/graph.gpickle")
     INDEX_PATH = get_config_value("INDEX_PATH", "data/processed/embeddings")
     HNSW_INDEX_PATH = get_config_value("HNSW_INDEX_PATH", "data/processed/hnsw_index")
+    
+    # Neo4j Settings
+    NEO4J_URI = get_config_value("NEO4J_URI", "neo4j+s://af7c3a71.databases.neo4j.io")
+    NEO4J_USERNAME = get_config_value("NEO4J_USERNAME", "neo4j")
+    NEO4J_PASSWORD = get_config_value("NEO4J_PASSWORD", "")
     
     # HNSW Settings
     HNSW_DIMENSION = get_int_config("HNSW_DIMENSION", 1536)  # OpenAI embedding dimension
@@ -87,7 +92,7 @@ class Config:
     ACCURACY_WEIGHT = get_float_config("ACCURACY_WEIGHT", 1.0)
     
     # Logging
-    LOG_LEVEL = get_config_value("LOG_LEVEL", "INFO")
+    LOG_LEVEL = get_config_value("LOG_LEVEL", "CRITICAL")  # Disabled for performance
     LOG_FILE = get_config_value("LOG_FILE", "logs/rapidrfp_rag.log")
     
     # API Settings

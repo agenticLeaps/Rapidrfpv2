@@ -1,0 +1,9 @@
+Gemini Models Comparison Summary
+==================================================
+Generated: 2025-11-28 10:32:31
+
+Model                     Entities   Relations  Semantic   Tokens     Blocks   Success 
+--------------------------------------------------------------------------------
+gemini-2.5-flash-lite     20         15         5          2655       0        ✅       
+gemini-2.0-flash-lite-001 20         15         5          2449       0        ✅       
+gemini-2.0-flash-001      20         15         5          2485       0        ✅       

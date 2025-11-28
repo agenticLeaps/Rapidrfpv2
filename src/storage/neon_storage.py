@@ -18,7 +18,7 @@ from ..llm.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
 
-class NeonDBStorage:
+class Neo4jStorage:
     def __init__(self):
         self.db_url = os.getenv("NEON_DATABASE_URL")
         if not self.db_url:

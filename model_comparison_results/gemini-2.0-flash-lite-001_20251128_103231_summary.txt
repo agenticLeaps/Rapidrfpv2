@@ -1,0 +1,74 @@
+Gemini Model Comparison Results
+========================================
+
+Model: gemini-2.0-flash-lite-001
+Timestamp: 2025-11-28T10:32:10.469043
+Processing Time: 8.71s
+Success: ✅
+
+Statistics:
+  - Entities Found: 20
+  - Relationships Found: 15
+  - Semantic Units Found: 5
+  - API Calls Made: 3
+  - Input Tokens: 1,877
+  - Output Tokens: 572
+  - Total Tokens: 2,449
+  - Safety Blocks: 0
+  - Errors: 0
+
+Entities Extracted:
+  1. Andor Health
+  2. RFI
+  3. Beebe Healthcare
+  4. OpenAI/ChatGPT
+  5. Microsoft Teams
+  6. ThinkAndor
+  7. Virtual Visits
+  8. Virtual Rounding
+  9. Virtual Patient Monitoring
+  10. Virtual Team Collaboration
+  11. Virtual Community Collaboration
+  12. US
+  13. Uk
+  14. Canada
+  15. National Institutes of Health
+  16. Orlando Health
+  17. Tampa General
+  18. Medical University of South Carolina
+  19. NHS
+  20. Epic Connection Hub (App Orchard)
+
+Relationships Extracted:
+  1. Andor Health → responds to → RFI
+  2. RFI → issued by → Beebe Healthcare
+  3. Andor Health → develops → ThinkAndor
+  4. ThinkAndor → integrates with → Microsoft Teams
+  5. ThinkAndor → integrates with → Epic Connection Hub (App Orchard)
+  6. Andor Health → uses → OpenAI/ChatGPT
+  7. Andor Health → provides → Virtual Visits
+  8. Andor Health → provides → Virtual Rounding
+  9. Andor Health → provides → Virtual Patient Monitoring
+  10. Andor Health → provides → Virtual Team Collaboration
+  11. Andor Health → provides → Virtual Community Collaboration
+  12. Andor Health → operates in → US
+  13. Andor Health → operates in → Uk
+  14. Andor Health → operates in → Canada
+  15. Andor Health → partners with → NHS
+
+Semantic Units Extracted:
+  1. Andor Health is responding to the RFI titled Strategic System Selection - Innovation from Beebe Healthcare.
+  2. Andor Health's platform uses AI to connect care teams, patients, and families, providing real-time intelligence and improving communication workflows.
+  3. ThinkAndor® is Andor Health's platform that enables virtual care collaboration across ambulatory, acute, post-acute, and at-home settings through its 5 Pillars of Virtual Health.
+  4. Andor Health has partnered with over 40 health systems across the US, UK, and Canada, with over 70,000 providers and 300 hospitals using the platform globally.
+  5. ThinkAndor integrates with multiple EMRs, including Epic, Cerner, and Athena, to ensure data integration and consistent workflows.
+
+Input Chunk Text:
+====================
+Andor Health is delighted to respond to the RFI titled Strategic System Selection - Innovation. We are eager to demonstrate our ability to meet and exceed the requirements as defined in the RFI by Beebe Healthcare.
+     
+    Andor Health was born 4 years ago with a single mission; to fundamentally change the way in which care teams, patients, and families connect and collaborate. By harnessing the latest innovations in OpenAI/ChatGPT and transformative generative AI/ML models, our cloud-based platform unlocks data stored in source systems, such as electronic medical records, to deliver real-time actionable intelligence to care teams within ubiquitous care team collaboration platforms like Microsoft Teams. By perfecting communication workflows, our platform accelerates time to treatment, decreases clinician burnout, and drives better patient outcomes.
+     
+    For over 20 years, our leadership team has placed intense focus on pioneering technologies for patients, creating more collaborative experiences for clinicians, using innovative devices, and driving evolution to mobile self-service. Healthcare institutions and care teams use ThinkAndor® to enable providers to configure patient and clinician interactions with ubiquitous team collaboration platforms. This eliminates the need to manage added applications. ThinkAndor® enables a frictionless virtual interaction allowing physicians and patients to communicate without being distracted by disjointed technologies during a virtual consultation. ThinkAndor is the only integrated virtual collaboraiton platform that can truly integrate all aspects of ambulatory, acute, post-acute and at home virtual care collaboration through our 5 Pillars of Virtual Health: Virtual Visits, Virtual Rounding, Virtual Patient Monitoring, Virtual Team Collaboration, and Virtual Community Collaboration.
+     
+    Andor Health is partnered with over 40 health systems across the US, Uk, and Canada, with over 70,000 providers and 300 hospitals leveraging the Andor Health platform globally, and ThinkAndor is the only virtual collaboration platform deployed AT SCALE. National Institutes of Health, Orlando Health, Tampa General, Medical University of South Carolina, and NHS, are among some of the most notable. You may find a list of our strategic partners by accessing this link. Moreover we have several distinct strategic partnerships and integrations, we have integrated to multiple EMR's including being a top tier partner Epic Connection Hub (App Orchard) partner, Cerner (CODE development partner), and Athena MDP partner which allow ThinkAndor to discretely integrate data and workflows to remain fundamentally aligned with any back end data sources at Beebe and retain consistent workflows for care teams.

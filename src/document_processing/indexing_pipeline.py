@@ -1,12 +1,14 @@
 import logging
 import uuid
+import os
 from typing import List, Dict, Any, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import asyncio
 import time
 
 from ..graph.graph_manager import GraphManager
 from ..graph.node_types import Node, Edge, NodeType
-from ..llm.llm_service import LLMService
+from ..llm.llm_service import LLMService, EnhancedExtractionResult
 from .document_loader import DocumentLoader, ProcessedDocument, DocumentChunk
 from .llamaparse_service import EnhancedDocumentLoader
 from ..vector.hnsw_service import HNSWService
@@ -17,7 +19,7 @@ logger = logging.getLogger(__name__)
 class IndexingPipeline:
     def __init__(self):
         self.graph_manager = GraphManager()
-        self.llm_service = LLMService()
+        self.llm_service = LLMService(model_type="gemini")
         self.hnsw_service = None  # Will be initialized when needed
         
         # Use enhanced document loader with LlamaParse integration
@@ -51,16 +53,112 @@ class IndexingPipeline:
         return self.hnsw_service
         
     def index_document(self, file_path: str) -> Dict[str, Any]:
-        """Index a document through the complete pipeline."""
-        logger.info(f"Starting indexing pipeline for {file_path}")
+        """Index a document through the complete pipeline with async optimization."""
+        print(f"🚀 Starting NodeRAG pipeline for: {os.path.basename(file_path)}")
         start_time = time.time()
         
         # Phase 1: Load and chunk document
+        print("📄 Loading and chunking document...")
         processed_doc = self.document_loader.load_document(file_path)
         if not processed_doc:
+            print("❌ Failed to load document")
             return {'success': False, 'error': 'Failed to load document'}
         
-        # Phase 2: Graph Decomposition
+        print(f"✅ Document loaded: {len(processed_doc.chunks)} chunks created")
+        
+        # Run phases with async optimization
+        try:
+            print("⚡ Running optimized async pipeline...")
+            result = asyncio.run(self._async_index_pipeline(processed_doc))
+            
+            processing_time = time.time() - start_time
+            result['processing_time'] = processing_time
+            result['document_metadata'] = processed_doc.metadata
+            result['chunks_processed'] = len(processed_doc.chunks)
+            
+            print(f"\n🎉 Pipeline completed in {processing_time:.2f}s")
+            print(f"📊 Graph stats: {result['graph_stats']['total_nodes']} nodes, {result['graph_stats']['total_edges']} edges")
+            
+            # Print phase timing breakdown
+            if 'phase_timing' in result:
+                timing = result['phase_timing']
+                print(f"\n⏱️  Phase Performance Breakdown:")
+                print(f"   Phase 1 (Decomposition): {timing['phase1_time']:.2f}s")
+                print(f"   Phase 2 (Augmentation):  {timing['phase2_time']:.2f}s") 
+                print(f"   Phase 3 (Embeddings):    {timing['phase3_time']:.2f}s")
+                print(f"   Total Phases:            {timing['total_phases_time']:.2f}s")
+                overhead = processing_time - timing['total_phases_time']
+                print(f"   Overhead (Loading etc):  {overhead:.2f}s")
+            
+            # Print LLM token usage statistics
+            llm_stats = self.llm_service.get_usage_stats()
+            if llm_stats['total_tokens'] > 0:
+                print(f"\n🤖 Gemini Token Usage:")
+                print(f"   Input tokens:  {llm_stats['input_tokens']:,}")
+                print(f"   Output tokens: {llm_stats['output_tokens']:,}")
+                print(f"   Total tokens:  {llm_stats['total_tokens']:,}")
+                print(f"   API calls:     {llm_stats['api_calls']}")
+            
+            return result
+            
+        except Exception as e:
+            print(f"⚠️  Async pipeline error: {e}")
+            print("🔄 Falling back to sync processing...")
+            return self._sync_index_pipeline(processed_doc, start_time)
+    
+    async def _async_index_pipeline(self, processed_doc: ProcessedDocument) -> Dict[str, Any]:
+        """Async pipeline with batch processing and overlapping phases."""
+        
+        # Phase 1: Batch decomposition (async)
+        print("\n🔗 Phase 1: Graph Decomposition (Batch Processing)")
+        phase1_start = time.time()
+        decomposition_result = await self._async_phase_1_decomposition(processed_doc)
+        phase1_time = time.time() - phase1_start
+        if not decomposition_result['success']:
+            return decomposition_result
+        print(f"✅ Phase 1 complete: {decomposition_result['chunks_processed']} chunks processed in {phase1_time:.2f}s")
+        
+        # Phase 2: Parallel augmentation (async)
+        print("\n🌟 Phase 2: Graph Augmentation (Parallel Processing)")
+        phase2_start = time.time()
+        augmentation_result = await self._async_phase_2_augmentation()
+        phase2_time = time.time() - phase2_start
+        if not augmentation_result['success']:
+            return augmentation_result
+        print(f"✅ Phase 2 complete: {augmentation_result['attribute_nodes']} attributes, {augmentation_result['communities_detected']} communities in {phase2_time:.2f}s")
+        
+        # Phase 3: Embedding generation (can overlap with storage)
+        print("\n🧠 Phase 3: Embedding Generation")
+        phase3_start = time.time()
+        embedding_result = self._phase_3_embedding_generation()
+        phase3_time = time.time() - phase3_start
+        if not embedding_result['success']:
+            return embedding_result
+        print(f"✅ Phase 3 complete: {embedding_result['embeddings_generated']} embeddings generated in {phase3_time:.2f}s")
+        
+        try:
+            stats = self.graph_manager.get_stats()
+        except Exception as e:
+            print(f"   ⚠️  Error getting graph stats: {e}")
+            stats = {'total_nodes': 0, 'total_edges': 0, 'node_type_counts': {}}
+        
+        return {
+            'success': True,
+            'graph_stats': stats,
+            'decomposition': decomposition_result,
+            'augmentation': augmentation_result,
+            'embeddings': embedding_result,
+            'phase_timing': {
+                'phase1_time': phase1_time,
+                'phase2_time': phase2_time,
+                'phase3_time': phase3_time,
+                'total_phases_time': phase1_time + phase2_time + phase3_time
+            }
+        }
+    
+    def _sync_index_pipeline(self, processed_doc: ProcessedDocument, start_time: float) -> Dict[str, Any]:
+        """Fallback sync pipeline."""
+        # Phase 1: Graph Decomposition  
         decomposition_result = self._phase_1_decomposition(processed_doc)
         if not decomposition_result['success']:
             return decomposition_result
@@ -78,8 +176,6 @@ class IndexingPipeline:
         processing_time = time.time() - start_time
         stats = self.graph_manager.get_stats()
         
-        logger.info(f"Document indexing completed in {processing_time:.2f} seconds")
-        
         return {
             'success': True,
             'processing_time': processing_time,
@@ -89,25 +185,41 @@ class IndexingPipeline:
         }
     
     def _phase_1_decomposition(self, processed_doc: ProcessedDocument) -> Dict[str, Any]:
-        """Phase I: Extract base nodes (T, S, N, R) from document chunks."""
-        logger.info("Starting Phase I: Graph Decomposition")
+        """Phase I: Extract base nodes (T, S, N, R) from document chunks with parallel processing."""
+        logger.info("Starting Phase I: Graph Decomposition (Parallel)")
         
         total_chunks = len(processed_doc.chunks)
         successful_chunks = 0
         failed_chunks = 0
         
         try:
-            # Process chunks sequentially for now (can be parallelized later)
-            for chunk in processed_doc.chunks:
-                success = self._process_chunk(chunk)
-                if success:
-                    successful_chunks += 1
-                else:
-                    failed_chunks += 1
+            # Use parallel processing with ThreadPoolExecutor
+            max_workers = min(4, total_chunks)  # Limit to 4 concurrent workers
+            
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # Submit all chunk processing tasks
+                future_to_chunk = {
+                    executor.submit(self._process_chunk, chunk): chunk 
+                    for chunk in processed_doc.chunks
+                }
                 
-                # Log progress
-                if (successful_chunks + failed_chunks) % 10 == 0:
-                    logger.info(f"Processed {successful_chunks + failed_chunks}/{total_chunks} chunks")
+                # Process completed futures as they finish
+                for future in as_completed(future_to_chunk):
+                    chunk = future_to_chunk[future]
+                    try:
+                        success = future.result()
+                        if success:
+                            successful_chunks += 1
+                        else:
+                            failed_chunks += 1
+                    except Exception as e:
+                        logger.error(f"Error processing chunk {chunk.chunk_index}: {e}")
+                        failed_chunks += 1
+                    
+                    # Log progress
+                    completed = successful_chunks + failed_chunks
+                    if completed % 5 == 0 or completed == total_chunks:
+                        logger.info(f"Processed {completed}/{total_chunks} chunks (Success: {successful_chunks}, Failed: {failed_chunks})")
             
             logger.info(f"Phase I completed: {successful_chunks} successful, {failed_chunks} failed")
             
@@ -265,8 +377,8 @@ class IndexingPipeline:
             return False
     
     def _phase_2_augmentation(self) -> Dict[str, Any]:
-        """Phase II: Generate augmented nodes (A, H, O)."""
-        logger.info("Starting Phase II: Graph Augmentation")
+        """Phase II: Generate augmented nodes (A, H, O) with parallel processing."""
+        logger.info("Starting Phase II: Graph Augmentation (Parallel)")
         
         try:
             # Step 1: Identify important entities
@@ -275,12 +387,27 @@ class IndexingPipeline:
             )
             logger.info(f"Identified {len(important_entities)} important entities")
             
-            # Step 2: Generate Attribute nodes (A) for important entities
+            # Step 2: Generate Attribute nodes (A) for important entities in parallel
             attribute_nodes_created = 0
-            for entity in important_entities:
-                success = self._create_attribute_node(entity)
-                if success:
-                    attribute_nodes_created += 1
+            max_workers = min(3, len(important_entities))  # Limit workers to avoid overwhelming LLM
+            
+            if important_entities and max_workers > 0:
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    # Submit attribute generation tasks
+                    future_to_entity = {
+                        executor.submit(self._create_attribute_node, entity): entity 
+                        for entity in important_entities
+                    }
+                    
+                    # Process completed futures
+                    for future in as_completed(future_to_entity):
+                        entity = future_to_entity[future]
+                        try:
+                            success = future.result()
+                            if success:
+                                attribute_nodes_created += 1
+                        except Exception as e:
+                            logger.error(f"Error creating attribute for entity {entity.id}: {e}")
             
             logger.info(f"Created {attribute_nodes_created} attribute nodes")
             
@@ -294,17 +421,32 @@ class IndexingPipeline:
                 logger.warning("Community detection failed")
                 return {'success': False, 'error': 'Community detection failed'}
             
-            # Step 4: Generate High-Level (H) and Overview (O) nodes
-            communities = set(community_assignments.values())
+            # Step 4: Generate High-Level (H) and Overview (O) nodes in parallel
+            communities = list(set(community_assignments.values()))
             high_level_nodes_created = 0
             overview_nodes_created = 0
             
-            for community_id in communities:
-                h_success, o_success = self._create_community_nodes(community_id)
-                if h_success:
-                    high_level_nodes_created += 1
-                if o_success:
-                    overview_nodes_created += 1
+            if communities:
+                print("   📝 Generating community summaries...")
+                max_workers = min(3, len(communities))
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    # Submit community processing tasks
+                    future_to_community = {
+                        executor.submit(self._create_community_nodes, community_id): community_id 
+                        for community_id in communities
+                    }
+                    
+                    # Process completed futures
+                    for future in as_completed(future_to_community):
+                        community_id = future_to_community[future]
+                        try:
+                            h_success, o_success = future.result()
+                            if h_success:
+                                high_level_nodes_created += 1
+                            if o_success:
+                                overview_nodes_created += 1
+                        except Exception as e:
+                            logger.error(f"Error creating community nodes for community {community_id}: {e}")
             
             logger.info(f"Created {high_level_nodes_created} high-level nodes and {overview_nodes_created} overview nodes")
             
@@ -463,7 +605,13 @@ class IndexingPipeline:
         if filepath is None:
             filepath = Config.GRAPH_DB_PATH
         
-        return self.graph_manager.save_graph(filepath)
+        print("💾 Saving graph to disk...")
+        success = self.graph_manager.save_graph(filepath)
+        if success:
+            print("✅ Graph saved successfully")
+        else:
+            print("❌ Graph save failed")
+        return success
     
     def load_graph(self, filepath: str = None) -> bool:
         """Load a graph from disk."""
@@ -474,11 +622,8 @@ class IndexingPipeline:
     
     def _phase_3_embedding_generation(self) -> Dict[str, Any]:
         """Phase III: Generate embeddings for all nodes."""
-        logger.info("Starting Phase III: Embedding Generation")
-        
         # Get HNSW service instance
         hnsw_service = self._get_hnsw_service()
-        logger.info(f"HNSW service initialized: {hnsw_service is not None}")
         
         try:
             # Get all nodes that need embeddings
@@ -489,10 +634,10 @@ class IndexingPipeline:
                 all_nodes.extend(nodes)
             
             if not all_nodes:
-                logger.warning("No nodes found for embedding generation")
+                print("   ⚠️  No nodes found for embedding generation")
                 return {'success': True, 'embeddings_generated': 0}
             
-            logger.info(f"Generating embeddings for {len(all_nodes)} nodes")
+            print(f"   🔢 Processing {len(all_nodes)} nodes in batches...")
             
             # Prepare texts for embedding
             texts = [node.content for node in all_nodes]
@@ -531,19 +676,28 @@ class IndexingPipeline:
                             metadata=metadata
                         )
                         
-                        if success:
-                            embeddings_generated += 1
-                        else:
+                        # Count successful embeddings (both node update and HNSW indexing)
+                        embeddings_generated += 1
+                        
+                        if not success:
                             logger.warning(f"Failed to add node {node_id} to HNSW index")
                 
-                logger.info(f"Generated embeddings for batch {i//batch_size + 1}/{(len(texts) + batch_size - 1)//batch_size}")
+                current_batch = i//batch_size + 1
+                total_batches = (len(texts) + batch_size - 1)//batch_size
+                print(f"   ✓ Batch {current_batch}/{total_batches} completed ({len(embeddings)} embeddings)")
             
             # Save HNSW index to disk
+            print("   💾 Saving HNSW index to disk...")
             try:
                 hnsw_saved = hnsw_service.save_index()
-                logger.info(f"HNSW index saved: {hnsw_saved}")
+                if hnsw_saved:
+                    print("   ✅ HNSW index saved successfully")
+                else:
+                    print("   ⚠️  HNSW index save failed")
             except Exception as e:
-                logger.warning(f"Failed to save HNSW index: {e}")
+                print(f"   ❌ Failed to save HNSW index: {e}")
+            
+            print(f"   📈 Total: {embeddings_generated} embeddings generated and indexed")
             
             logger.info(f"Phase III completed: {embeddings_generated} embeddings generated and indexed")
             
@@ -560,6 +714,428 @@ class IndexingPipeline:
                 'error': str(e),
                 'embeddings_generated': 0
             }
+    
+    async def _async_phase_1_decomposition(self, processed_doc: ProcessedDocument) -> Dict[str, Any]:
+        """Async Phase I with optimized batch processing."""
+        total_chunks = len(processed_doc.chunks)
+        successful_chunks = 0
+        failed_chunks = 0
+        print(f"⚡ GEMINI 1.5 FLASH: Processing {total_chunks} chunks with 8 workers (rate-limited)")
+        print(f"🎯 TARGET: Avoid quota limits while testing performance vs GPT-5-nano")
+        
+        try:
+            # Process ALL chunks in parallel - no batching
+            batch_size = total_chunks  # Process all chunks in one batch
+            semaphore = asyncio.Semaphore(total_chunks)  # Allow all chunks to run concurrently
+            
+            async def process_chunk_batch(chunks_batch, batch_num):
+                async with semaphore:
+                    try:
+                        # Process chunks in parallel using ThreadPoolExecutor
+                        import concurrent.futures
+                        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+                            # Submit all extraction tasks
+                            future_to_chunk = {}
+                            for chunk in chunks_batch:
+                                future = executor.submit(self.llm_service.extract_all_from_chunk, chunk.content)
+                                future_to_chunk[future] = chunk
+                            
+                            results = []
+                            for future in concurrent.futures.as_completed(future_to_chunk):
+                                try:
+                                    result = future.result()
+                                    # Convert to EnhancedExtractionResult format
+                                    enhanced_result = EnhancedExtractionResult(
+                                        semantic_units=[{"semantic_unit": unit, "entities": result.entities, "relationships": [str(rel) for rel in result.relationships]} for unit in result.semantic_units],
+                                        entities=result.entities,
+                                        relationships=result.relationships,
+                                        success=result.success,
+                                        error_message=result.error_message
+                                    )
+                                    results.append(enhanced_result)
+                                except Exception as chunk_e:
+                                    print(f"   ❌ Chunk processing failed: {chunk_e}")
+                                    # Add failed result
+                                    results.append(EnhancedExtractionResult(
+                                        semantic_units=[], entities=[], relationships=[], 
+                                        success=False, error_message=str(chunk_e)
+                                    ))
+                        
+                        batch_success = 0
+                        batch_failed = 0
+                        
+                        # Process results and create nodes
+                        print(f"   📝 Creating nodes for batch {batch_num}...")
+                        for i, (chunk, result) in enumerate(zip(chunks_batch, results)):
+                            print(f"   🔍 Batch {batch_num}, Chunk {i+1}:")
+                            print(f"      Success: {result.success}")
+                            if result.success:
+                                print(f"      Entities ({len(result.entities)}): {result.entities[:3]}{'...' if len(result.entities) > 3 else ''}")
+                                print(f"      Semantic Units ({len(result.semantic_units)}): {[str(su)[:50] + '...' if len(str(su)) > 50 else str(su) for su in result.semantic_units[:2]]}")
+                                print(f"      Relationships ({len(result.relationships)}): {result.relationships[:2]}")
+                                
+                                success = self._create_nodes_from_result(chunk, result, f"{batch_num}_{i}")
+                                if success:
+                                    batch_success += 1
+                                    print(f"      ✅ Nodes created successfully")
+                                else:
+                                    batch_failed += 1
+                                    print(f"      ❌ Node creation failed")
+                            else:
+                                print(f"      ❌ LLM extraction failed: {result.error_message}")
+                                batch_failed += 1
+                        
+                        print(f"   ✓ Batch {batch_num}/X completed: {batch_success} successful, {batch_failed} failed")
+                        return batch_success, batch_failed
+                        
+                    except Exception as e:
+                        logger.error(f"Error in batch {batch_num}: {e}")
+                        return 0, len(chunks_batch)
+            
+            # Create batch tasks
+            tasks = []
+            for i in range(0, len(processed_doc.chunks), batch_size):
+                batch = processed_doc.chunks[i:i+batch_size]
+                batch_num = i // batch_size + 1
+                tasks.append(process_chunk_batch(batch, batch_num))
+            
+            # Execute batches concurrently
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Aggregate results
+            for result in results:
+                if isinstance(result, tuple):
+                    batch_success, batch_failed = result
+                    successful_chunks += batch_success
+                    failed_chunks += batch_failed
+                else:
+                    logger.error(f"Batch processing error: {result}")
+                    failed_chunks += batch_size
+            
+            logger.info(f"Async Phase I completed: {successful_chunks} successful, {failed_chunks} failed")
+            
+            return {
+                'success': True,
+                'chunks_processed': successful_chunks,
+                'chunks_failed': failed_chunks,
+                'processing_method': 'async_batch'
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in Async Phase I: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    async def _async_phase_2_augmentation(self) -> Dict[str, Any]:
+        """Async Phase II with batch attribute generation."""
+        try:
+            # Step 1: Identify important entities
+            print("   🎯 Identifying important entities...")
+            important_entities = self.graph_manager.get_important_entities(
+                Config.IMPORTANT_ENTITY_PERCENTAGE
+            )
+            print(f"   ✓ Found {len(important_entities)} important entities")
+            
+            # Step 2: Batch generate attributes
+            print("   🔨 Generating entity attributes in batch...")
+            attribute_nodes_created = 0
+            if important_entities:
+                # Prepare batch data for entities
+                entities_with_context = []
+                for entity in important_entities:
+                    connected_nodes = self.graph_manager.get_connected_nodes(entity.id)
+                    context_chunks = [node.content for node in connected_nodes if node.type == NodeType.TEXT][:3]
+                    
+                    relationships = []
+                    for neighbor in self.graph_manager.graph.neighbors(entity.id):
+                        neighbor_node = self.graph_manager.get_node(neighbor)
+                        if neighbor_node and neighbor_node.type == NodeType.RELATIONSHIP:
+                            relationships.append(neighbor_node.content)
+                    
+                    entities_with_context.append((entity.content, context_chunks, relationships[:3]))
+                
+                # Batch generate attributes
+                print(f"   📝 Generating attributes for {len(entities_with_context)} entities...")
+                batch_attributes = await self.llm_service.generate_entity_attributes_batch(entities_with_context)
+                
+                # Create attribute nodes
+                for i, (entity, attributes) in enumerate(zip(important_entities, batch_attributes)):
+                    print(f"   🔍 Entity {i+1}: {entity.content}")
+                    print(f"      Attributes: {attributes[:100]}{'...' if len(attributes) > 100 else ''}")
+                    
+                    success = self._create_attribute_node_from_text(entity, attributes)
+                    if success:
+                        attribute_nodes_created += 1
+                        print(f"      ✅ Attribute node created")
+                    else:
+                        print(f"      ❌ Attribute node creation failed")
+            
+            # Step 3: Community detection and processing (keep sync for graph algorithms)
+            print("   🌐 Detecting communities...")
+            community_assignments = self.graph_manager.detect_communities(
+                resolution=Config.LEIDEN_RESOLUTION,
+                random_state=Config.LEIDEN_RANDOM_STATE
+            )
+            
+            # Step 4: Community processing (can be parallelized with sync executor)
+            if not community_assignments:
+                print("   ⚠️  No communities detected (likely due to insufficient entities)")
+                communities = []
+            else:
+                communities = list(set(community_assignments.values()))
+                print(f"   ✓ Found {len(communities)} communities")
+            high_level_nodes_created = 0
+            overview_nodes_created = 0
+            
+            if communities:
+                # Use executor for CPU-bound community processing
+                loop = asyncio.get_event_loop()
+                with ThreadPoolExecutor(max_workers=3) as executor:
+                    tasks = []
+                    for community_id in communities:
+                        task = loop.run_in_executor(executor, self._create_community_nodes_with_debug, community_id)
+                        tasks.append(task)
+                    
+                    results = await asyncio.gather(*tasks)
+                    
+                    for i, (h_success, o_success, debug_info) in enumerate(results):
+                        print(f"   🏘️  Community {i+1}: {debug_info}")
+                        if h_success:
+                            high_level_nodes_created += 1
+                        if o_success:
+                            overview_nodes_created += 1
+            
+            logger.info(f"Async Phase II completed: {attribute_nodes_created} attributes, {high_level_nodes_created} high-level, {overview_nodes_created} overview")
+            
+            return {
+                'success': True,
+                'important_entities': len(important_entities),
+                'attribute_nodes': attribute_nodes_created,
+                'communities_detected': len(communities),
+                'high_level_nodes': high_level_nodes_created,
+                'overview_nodes': overview_nodes_created,
+                'processing_method': 'async_batch'
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in Async Phase II: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def _create_nodes_from_result(self, chunk: DocumentChunk, result: 'EnhancedExtractionResult', chunk_id: str) -> bool:
+        """Create nodes from extraction result."""
+        try:
+            # Create Text Node (T)
+            text_node = Node(
+                id=f"T_{chunk_id}",
+                type=NodeType.TEXT,
+                content=chunk.content,
+                metadata={**chunk.metadata, 'node_type': 'text', 'chunk_id': chunk_id}
+            )
+            self.graph_manager.add_node(text_node)
+            
+            # Create Semantic Unit nodes (S)
+            for i, semantic_unit_data in enumerate(result.semantic_units):
+                semantic_id = f"S_{chunk_id}_{i}"
+                semantic_content = semantic_unit_data.get('semantic_unit', '') if isinstance(semantic_unit_data, dict) else str(semantic_unit_data)
+                
+                semantic_node = Node(
+                    id=semantic_id,
+                    type=NodeType.SEMANTIC,
+                    content=semantic_content,
+                    metadata={'chunk_id': chunk_id, 'semantic_index': i, 'node_type': 'semantic'}
+                )
+                
+                self.graph_manager.add_node(semantic_node)
+                
+                # Link to text node
+                self.graph_manager.add_edge(Edge(
+                    source=text_node.id, target=semantic_id, relationship_type="contains_semantic_unit"
+                ))
+            
+            # Create Entity and Relationship nodes
+            self._create_entity_and_relationship_nodes(result, chunk_id, text_node.id)
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error creating nodes from result: {e}")
+            return False
+    
+    def _create_entity_and_relationship_nodes(self, result: 'EnhancedExtractionResult', chunk_id: str, text_node_id: str):
+        """Create entity and relationship nodes from extraction result."""
+        entity_node_ids = []
+        
+        # Create Entity nodes
+        for i, entity in enumerate(result.entities):
+            entity_id = f"N_{chunk_id}_{i}"
+            entity_node = Node(
+                id=entity_id,
+                type=NodeType.ENTITY,
+                content=entity,
+                metadata={'chunk_id': chunk_id, 'entity_index': i, 'node_type': 'entity'}
+            )
+            
+            added = self.graph_manager.add_node(entity_node)
+            if added:
+                entity_node_ids.append(entity_id)
+                # Link to text node
+                self.graph_manager.add_edge(Edge(
+                    source=text_node_id, target=entity_id, relationship_type="mentions_entity"
+                ))
+        
+        # Create Relationship nodes
+        for i, (entity1, relation, entity2) in enumerate(result.relationships):
+            entity1_nodes = self.graph_manager.get_entity_mentions(entity1)
+            entity2_nodes = self.graph_manager.get_entity_mentions(entity2)
+            
+            if entity1_nodes and entity2_nodes:
+                relationship_id = f"R_{chunk_id}_{i}"
+                relationship_node = Node(
+                    id=relationship_id,
+                    type=NodeType.RELATIONSHIP,
+                    content=f"{entity1} {relation} {entity2}",
+                    metadata={'chunk_id': chunk_id, 'relationship_index': i, 'node_type': 'relationship'}
+                )
+                
+                self.graph_manager.add_node(relationship_node)
+                
+                # Link relationships
+                self.graph_manager.add_edge(Edge(
+                    source=relationship_id, target=entity1_nodes[0].id, relationship_type="involves_entity"
+                ))
+                self.graph_manager.add_edge(Edge(
+                    source=relationship_id, target=entity2_nodes[0].id, relationship_type="involves_entity"
+                ))
+                self.graph_manager.add_edge(Edge(
+                    source=entity1_nodes[0].id, target=entity2_nodes[0].id, 
+                    relationship_type=relation, metadata={'relationship_node': relationship_id}
+                ))
+    
+    def _create_attribute_node_from_text(self, entity: Node, attributes_text: str) -> bool:
+        """Create attribute node from generated text."""
+        try:
+            attribute_id = f"A_{entity.id}"
+            attribute_node = Node(
+                id=attribute_id,
+                type=NodeType.ATTRIBUTE,
+                content=attributes_text,
+                metadata={'entity_id': entity.id, 'entity_name': entity.content, 'node_type': 'attribute'}
+            )
+            
+            self.graph_manager.add_node(attribute_node)
+            self.graph_manager.add_edge(Edge(
+                source=attribute_id, target=entity.id, relationship_type="describes_entity"
+            ))
+            
+            return True
+        except Exception as e:
+            logger.error(f"Error creating attribute node: {e}")
+            return False
+    
+    def _create_community_nodes_with_debug(self, community_id: int) -> tuple[bool, bool, str]:
+        """Create high-level and overview nodes for a community with debug info."""
+        try:
+            # Get community nodes
+            community_nodes = self.graph_manager.get_community_nodes(community_id)
+            
+            if not community_nodes:
+                return False, False, f"No nodes in community {community_id}"
+            
+            debug_info = f"Community {community_id}: {len(community_nodes)} nodes"
+            
+            # Convert to dict format for LLM service
+            community_data = []
+            for node in community_nodes:
+                community_data.append({
+                    'content': node.content,
+                    'type': node.type.value,
+                    'metadata': node.metadata
+                })
+            
+            print(f"   🔍 Processing community {community_id} with {len(community_nodes)} nodes")
+            print(f"      Node types: {[node.type.value for node in community_nodes[:5]]}")
+            print(f"      Sample content: {[node.content[:50] + '...' for node in community_nodes[:2]]}")
+            
+            # Generate high-level summary
+            try:
+                high_level_summary = self.llm_service.generate_community_summary(community_data)
+                print(f"      High-level summary: {high_level_summary[:100]}{'...' if len(high_level_summary) > 100 else ''}")
+                
+                if "Error" in high_level_summary or "error" in high_level_summary:
+                    print(f"      ⚠️  Generated summary contains error: {high_level_summary}")
+                
+            except Exception as e:
+                print(f"      ❌ High-level summary generation failed: {e}")
+                high_level_summary = f"Error generating community summary: {str(e)}"
+            
+            # Create High-Level node
+            high_level_id = f"H_community_{community_id}"
+            high_level_node = Node(
+                id=high_level_id,
+                type=NodeType.HIGH_LEVEL,
+                content=high_level_summary,
+                metadata={
+                    'community_id': community_id,
+                    'node_count': len(community_nodes),
+                    'node_type': 'high_level'
+                }
+            )
+            
+            h_success = self.graph_manager.add_node(high_level_node)
+            
+            # Generate overview title
+            try:
+                overview_title = self.llm_service.generate_community_overview(high_level_summary)
+                print(f"      Overview title: {overview_title}")
+                
+                if "Error" in overview_title or "error" in overview_title:
+                    print(f"      ⚠️  Generated overview contains error: {overview_title}")
+                    
+            except Exception as e:
+                print(f"      ❌ Overview title generation failed: {e}")
+                overview_title = f"Error generating community overview: {str(e)}"
+            
+            # Create Overview node
+            overview_id = f"O_community_{community_id}"
+            overview_node = Node(
+                id=overview_id,
+                type=NodeType.OVERVIEW,
+                content=overview_title,
+                metadata={
+                    'community_id': community_id,
+                    'high_level_node': high_level_id,
+                    'node_type': 'overview'
+                }
+            )
+            
+            o_success = self.graph_manager.add_node(overview_node)
+            
+            # Link overview to high-level
+            if h_success and o_success:
+                edge = Edge(
+                    source=overview_id,
+                    target=high_level_id,
+                    relationship_type="summarizes"
+                )
+                self.graph_manager.add_edge(edge)
+            
+            # Link high-level to community nodes
+            if h_success:
+                for node in community_nodes[:10]:  # Limit connections
+                    edge = Edge(
+                        source=high_level_id,
+                        target=node.id,
+                        relationship_type="summarizes_content"
+                    )
+                    self.graph_manager.add_edge(edge)
+            
+            debug_info += f", H: {h_success}, O: {o_success}"
+            print(f"      ✅ Community {community_id} processed: H={h_success}, O={o_success}")
+            return h_success, o_success, debug_info
+            
+        except Exception as e:
+            debug_info = f"Community {community_id} failed: {str(e)}"
+            print(f"      ❌ Community {community_id} processing failed: {e}")
+            return False, False, debug_info
     
     def get_indexing_stats(self) -> Dict[str, Any]:
         """Get statistics about the current indexed content."""
