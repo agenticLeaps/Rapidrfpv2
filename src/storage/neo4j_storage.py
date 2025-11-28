@@ -23,10 +23,10 @@ logger = logging.getLogger(__name__)
 
 class Neo4jStorage:
     def __init__(self):
-        self.uri = os.getenv("NEO4J_URI", "neo4j+s://4b2d4f30.databases.neo4j.io")
-        self.username = os.getenv("NEO4J_USERNAME", "neo4j")
-        self.password = os.getenv("NEO4J_PASSWORD", "1DyQZbgG4Cr1mQMdBZtZMEC0HpehqmwBEj6puoSsNGU")
-        self.database = os.getenv("NEO4J_DATABASE", "neo4j")
+        self.uri = os.getenv("NEO4J_URI", "")
+        self.username = os.getenv("NEO4J_USERNAME", "")
+        self.password = os.getenv("NEO4J_PASSWORD", "")
+        self.database = os.getenv("NEO4J_DATABASE", "")
         
         if not all([self.uri, self.username, self.password]):
             raise ValueError("Neo4j connection parameters (NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD) not found")
