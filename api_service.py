@@ -1157,6 +1157,17 @@ Please provide a refined response that takes into account the conversation histo
         source_files = set()
         node_types = {}
         
+        logger.info(f"🔍 ADVANCED SEARCH: Found {len(retrieval_result.final_nodes)} total nodes before org_id filtering")
+        
+        # Debug: Check what org_ids exist in the results
+        org_ids_found = set()
+        for node_id in retrieval_result.final_nodes:
+            node = advanced_search.graph_manager.get_node(node_id)
+            if node and node.metadata.get('org_id'):
+                org_ids_found.add(node.metadata.get('org_id'))
+        
+        logger.info(f"🔍 ORG_ID ANALYSIS: Looking for '{org_id}', found org_ids in memory: {list(org_ids_found)}")
+        
         for node_id in retrieval_result.final_nodes:
             node = advanced_search.graph_manager.get_node(node_id)
             if node and node.metadata.get('org_id') == org_id:
@@ -1174,6 +1185,8 @@ Please provide a refined response that takes into account the conversation histo
                 if node_type not in node_types:
                     node_types[node_type] = 0
                 node_types[node_type] += 1
+        
+        logger.info(f"🔍 ORG_ID FILTERING RESULT: {len(org_filtered_nodes)} nodes match org_id '{org_id}' out of {len(retrieval_result.final_nodes)} total")
         
         if not org_filtered_nodes:
             # Try to provide helpful response for advanced search too
