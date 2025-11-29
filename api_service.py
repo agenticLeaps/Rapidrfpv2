@@ -821,113 +821,110 @@ def generate_response():
                 logger.warning(f"⚠️ Greeting handler error: {e}")
                 # Fall through to normal processing if greeting handler fails
         
-        # Check if we have data in memory graph first
-        advanced_search = noderag_service.get_advanced_search()
+        # PRODUCTION FIX: Always use Neo4j storage for consistent, reliable data access
+        # This ensures all instances serve the same data regardless of in-memory state
+        logger.info("📊 Using Neo4j storage search for production reliability")
+        storage = noderag_service.get_neo4j_storage()
         
-        # If no data in memory graph, use Neo4j storage search directly
-        if advanced_search is None:
-            logger.info("📊 No data in memory graph, using Neo4j storage search")
-            storage = noderag_service.get_neo4j_storage()
+        # 🔍 AGENTIC EXPLORATION: For knowledge discovery, use smart multi-query approach
+        if is_knowledge_discovery:
+            logger.info("🔍 Performing optimized agentic knowledge exploration")
             
-            # 🔍 AGENTIC EXPLORATION: For knowledge discovery, use smart multi-query approach
-            if is_knowledge_discovery:
-                logger.info("🔍 Performing optimized agentic knowledge exploration")
-                
-                # Get overview nodes (H, O types) - prioritize high-level summaries
-                overview_results = storage.search_noderag_data(
-                    org_id=org_id,
-                    query="overview summary main topics key information executive summary conclusions",
-                    top_k=20,  # Increased for better coverage
-                    filters={"node_type": "H"}
-                )
-                
-                # Get key entities (N types) - focus on important names and organizations
-                entity_results = storage.search_noderag_data(
-                    org_id=org_id, 
-                    query="companies organizations entities names people products services key players",
-                    top_k=15,
-                    filters={"node_type": "N"}
-                )
-                
-                # Get semantic chunks (S types) - get diverse content based on original query
-                semantic_results = storage.search_noderag_data(
-                    org_id=org_id,
-                    query=f"{query} content details information data",
-                    top_k=20,
-                    filters={"node_type": "S"}
-                )
-                
-                # Get relationship insights (R types) - capture connections and dependencies
-                relationship_results = storage.search_noderag_data(
-                    org_id=org_id,
-                    query="relationships connections dependencies interactions processes workflows",
-                    top_k=10,
-                    filters={"node_type": "R"}
-                )
-                
-                # Combine results intelligently with score-based prioritization
-                search_results = []
-                
-                # Prioritize overview content (highest priority for knowledge discovery)
-                search_results.extend(overview_results)
-                
-                # Add key entities with deduplication
-                added_nodes = {r['node_id'] for r in search_results}
-                for result in entity_results:
-                    if result['node_id'] not in added_nodes:
-                        search_results.append(result)
-                        added_nodes.add(result['node_id'])
-                
-                # Add relationship insights for context
-                for result in relationship_results:
-                    if result['node_id'] not in added_nodes and len(search_results) < 30:
-                        search_results.append(result)
-                        added_nodes.add(result['node_id'])
-                
-                # Add semantic content (fill remaining slots)
-                for result in semantic_results:
-                    if result['node_id'] not in added_nodes and len(search_results) < 35:
-                        search_results.append(result)
-                        added_nodes.add(result['node_id'])
-                
-                # Sort by similarity score for final ranking
-                search_results.sort(key=lambda x: x.get('similarity_score', 0), reverse=True)
-                
-                logger.info(f"🧠 Optimized agentic exploration found: {len(overview_results)} overview + {len(entity_results)} entities + {len(relationship_results)} relationships + {len(semantic_results)} semantic = {len(search_results)} total")
-                
-            else:
-                # Enhanced standard search for specific queries
-                logger.info("🎯 Performing enhanced targeted search")
-                
-                # Primary search with the original query
-                primary_results = storage.search_noderag_data(
-                    org_id=org_id,
-                    query=query,
-                    top_k=25
-                )
-                
-                # Secondary search for context with expanded query
-                context_query = f"{query} related information context background details"
-                context_results = storage.search_noderag_data(
-                    org_id=org_id,
-                    query=context_query,
-                    top_k=15
-                )
-                
-                # Combine and deduplicate
-                search_results = primary_results.copy()
-                added_nodes = {r['node_id'] for r in search_results}
-                
-                for result in context_results:
-                    if result['node_id'] not in added_nodes and len(search_results) < 30:
-                        search_results.append(result)
-                        added_nodes.add(result['node_id'])
-                
-                # Sort by relevance
-                search_results.sort(key=lambda x: x.get('similarity_score', 0), reverse=True)
-                logger.info(f"🎯 Enhanced search found: {len(primary_results)} primary + {len(context_results)} context = {len(search_results)} total")
+            # Get overview nodes (H, O types) - prioritize high-level summaries
+            overview_results = storage.search_noderag_data(
+                org_id=org_id,
+                query="overview summary main topics key information executive summary conclusions",
+                top_k=20,  # Increased for better coverage
+                filters={"node_type": "H"}
+            )
             
-            if not search_results:
+            # Get key entities (N types) - focus on important names and organizations
+            entity_results = storage.search_noderag_data(
+                org_id=org_id, 
+                query="companies organizations entities names people products services key players",
+                top_k=15,
+                filters={"node_type": "N"}
+            )
+            
+            # Get semantic chunks (S types) - get diverse content based on original query
+            semantic_results = storage.search_noderag_data(
+                org_id=org_id,
+                query=f"{query} content details information data",
+                top_k=20,
+                filters={"node_type": "S"}
+            )
+            
+            # Get relationship insights (R types) - capture connections and dependencies
+            relationship_results = storage.search_noderag_data(
+                org_id=org_id,
+                query="relationships connections dependencies interactions processes workflows",
+                top_k=10,
+                filters={"node_type": "R"}
+            )
+            
+            # Combine results intelligently with score-based prioritization
+            search_results = []
+            
+            # Prioritize overview content (highest priority for knowledge discovery)
+            search_results.extend(overview_results)
+            
+            # Add key entities with deduplication
+            added_nodes = {r['node_id'] for r in search_results}
+            for result in entity_results:
+                if result['node_id'] not in added_nodes:
+                    search_results.append(result)
+                    added_nodes.add(result['node_id'])
+            
+            # Add relationship insights for context
+            for result in relationship_results:
+                if result['node_id'] not in added_nodes and len(search_results) < 30:
+                    search_results.append(result)
+                    added_nodes.add(result['node_id'])
+            
+            # Add semantic content (fill remaining slots)
+            for result in semantic_results:
+                if result['node_id'] not in added_nodes and len(search_results) < 35:
+                    search_results.append(result)
+                    added_nodes.add(result['node_id'])
+            
+            # Sort by similarity score for final ranking
+            search_results.sort(key=lambda x: x.get('similarity_score', 0), reverse=True)
+            
+            logger.info(f"🧠 Optimized agentic exploration found: {len(overview_results)} overview + {len(entity_results)} entities + {len(relationship_results)} relationships + {len(semantic_results)} semantic = {len(search_results)} total")
+            
+        else:
+            # Enhanced standard search for specific queries
+            logger.info("🎯 Performing enhanced targeted search")
+            
+            # Primary search with the original query
+            primary_results = storage.search_noderag_data(
+                org_id=org_id,
+                query=query,
+                top_k=25
+            )
+            
+            # Secondary search for context with expanded query
+            context_query = f"{query} related information context background details"
+            context_results = storage.search_noderag_data(
+                org_id=org_id,
+                query=context_query,
+                top_k=15
+            )
+            
+            # Combine and deduplicate
+            search_results = primary_results.copy()
+            added_nodes = {r['node_id'] for r in search_results}
+            
+            for result in context_results:
+                if result['node_id'] not in added_nodes and len(search_results) < 30:
+                    search_results.append(result)
+                    added_nodes.add(result['node_id'])
+            
+            # Sort by relevance
+            search_results.sort(key=lambda x: x.get('similarity_score', 0), reverse=True)
+            logger.info(f"🎯 Enhanced search found: {len(primary_results)} primary + {len(context_results)} context = {len(search_results)} total")
+        
+        if not search_results:
                 # Try to provide a helpful response even when no data is found
                 try:
                     stats = storage.get_storage_stats(org_id)
@@ -956,40 +953,40 @@ def generate_response():
                 logger.info(f"📤 EMPTY RESULTS RESPONSE SENT (Neo4j Search): {json.dumps(response_data, indent=2)}")
                 return jsonify(response_data)
             
-            # Build context from search results
-            filtered_context_parts = []
-            source_files = set()
-            node_types = {}
+        # Build context from search results
+        filtered_context_parts = []
+        source_files = set()
+        node_types = {}
+        
+        logger.info(f"🔍 Processing {len(search_results)} search results:")
+        for i, result in enumerate(search_results):
+            # Log the first few results for debugging
+            if i < 3:
+                logger.info(f"  Result {i}: node_type={result['node_type']}, file_id={result.get('file_id', 'N/A')}, content_preview={result['content'][:100]}...")
             
-            logger.info(f"🔍 Processing {len(search_results)} search results:")
-            for i, result in enumerate(search_results):
-                # Log the first few results for debugging
-                if i < 3:
-                    logger.info(f"  Result {i}: node_type={result['node_type']}, file_id={result.get('file_id', 'N/A')}, content_preview={result['content'][:100]}...")
-                
-                # Build context with structured format
-                filtered_context_parts.append(f"[{result['node_type']}] {result['content']}")
-                
-                # Track sources and node types
-                file_id = result.get('file_id', '')
-                if file_id:
-                    source_files.add(file_id)
-                
-                node_type = result['node_type']
-                if node_type not in node_types:
-                    node_types[node_type] = 0
-                node_types[node_type] += 1
+            # Build context with structured format
+            filtered_context_parts.append(f"[{result['node_type']}] {result['content']}")
             
-            retrieved_info = "\n\n".join(filtered_context_parts)
-            logger.info(f"📝 Built context with {len(retrieved_info)} characters from {len(filtered_context_parts)} nodes")
+            # Track sources and node types
+            file_id = result.get('file_id', '')
+            if file_id:
+                source_files.add(file_id)
             
-            # Generate answer using filtered context
-            llm_service = noderag_service.get_pipeline().llm_service
-            
-            # 🧠 AGENTIC PROMPTING: Use different prompts for knowledge discovery vs specific queries
-            if is_knowledge_discovery:
-                # Cognitive prompt for exploring and summarizing available knowledge
-                answer_prompt = f"""You are an intelligent knowledge assistant exploring the user's data repository. The user wants to understand what information is available in their knowledge base.
+            node_type = result['node_type']
+            if node_type not in node_types:
+                node_types[node_type] = 0
+            node_types[node_type] += 1
+        
+        retrieved_info = "\n\n".join(filtered_context_parts)
+        logger.info(f"📝 Built context with {len(retrieved_info)} characters from {len(filtered_context_parts)} nodes")
+        
+        # Generate answer using filtered context
+        llm_service = noderag_service.get_pipeline().llm_service
+        
+        # 🧠 AGENTIC PROMPTING: Use different prompts for knowledge discovery vs specific queries
+        if is_knowledge_discovery:
+            # Cognitive prompt for exploring and summarizing available knowledge
+            answer_prompt = f"""You are an intelligent knowledge assistant exploring the user's data repository. The user wants to understand what information is available in their knowledge base.
 
 CONTEXT INFORMATION:
 {retrieved_info}
@@ -1006,233 +1003,24 @@ TASK: Provide a comprehensive, well-structured overview of the available knowled
 Structure your response to give the user a clear understanding of their knowledge base content. Be specific about what information is available and how it could be useful.
 
 RESPONSE:"""
-            else:
-                # Standard NodeRAG prompt for specific queries
-                answer_prompt = llm_service.prompt_manager.answer_generation.format(
-                    info=retrieved_info,
-                    query=query
-                )
-            
-            logger.info(f"🤖 Generating {'agentic' if is_knowledge_discovery else 'standard'} answer with prompt length: {len(answer_prompt)} characters")
-            
-            # Generate initial answer
-            final_response = llm_service._chat_completion(
-                prompt=answer_prompt,
-                temperature=0.6 if is_knowledge_discovery else temperature,  # Slightly lower temp for exploration
-                max_tokens=max_tokens
-            )
-            
-            logger.info(f"✅ Generated response length: {len(final_response)} characters")
-            logger.info(f"📄 Response preview: {final_response[:200]}...")
-            
-            # If we have conversation history, enhance the answer
-            if conversation_history and final_response:
-                enhanced_prompt = f"""Given the previous conversation context and the answer below, please refine the answer to be more contextual and helpful:
-
-Previous conversation:
-{conversation_history}
-
-Current question: {query}
-
-Generated answer: {final_response}
-
-Please provide a refined response that takes into account the conversation history:"""
-                
-                final_response = llm_service._chat_completion(
-                    prompt=enhanced_prompt,
-                    temperature=temperature,
-                    max_tokens=max_tokens
-                )
-            
-            # Calculate confidence based on retrieval quality
-            confidence = min(0.9, 0.6 + (len(search_results) * 0.02))
-            
-            # Calculate token usage for this session
-            session_input_tokens = llm_service.total_input_tokens - initial_input_tokens
-            session_output_tokens = llm_service.total_output_tokens - initial_output_tokens
-            session_api_calls = llm_service.api_calls_count - initial_api_calls
-            session_total_tokens = session_input_tokens + session_output_tokens
-            processing_time = time.time() - start_time
-            
-            # Calculate quality metrics
-            quality_metrics = {
-                "response_length_score": min(1.0, len(final_response) / 500),  # Normalized response length
-                "source_diversity_score": len(source_files) / max(len(search_results), 1),  # Source diversity
-                "retrieval_coverage": min(1.0, len(search_results) / 20),  # Retrieval effectiveness
-                "processing_efficiency": max(0.1, 1.0 / max(processing_time, 0.1)),  # Speed efficiency
-                "token_efficiency": session_output_tokens / max(session_input_tokens, 1)  # Output/input ratio
-            }
-            
-            # Composite quality score
-            quality_score = (
-                quality_metrics["response_length_score"] * 0.2 +
-                quality_metrics["source_diversity_score"] * 0.3 +
-                quality_metrics["retrieval_coverage"] * 0.2 +
-                quality_metrics["processing_efficiency"] * 0.15 +
-                quality_metrics["token_efficiency"] * 0.15
-            )
-            
-            # Store token usage and response metadata in Neo4j
-            try:
-                response_metadata = {
-                    "query": query[:500],  # Truncate for storage
-                    "response_length": len(final_response),
-                    "retrieval_count": len(search_results),
-                    "unique_sources": len(source_files),
-                    "processing_time": round(processing_time, 2),
-                    "algorithm": "Agentic Knowledge Discovery" if is_knowledge_discovery else "Neo4j Storage Vector Search",
-                    "confidence": confidence,
-                    "quality_score": round(quality_score, 3),
-                    "quality_metrics": quality_metrics
-                }
-                
-                storage.store_api_usage(
-                    org_id=org_id,
-                    user_id=user_id,
-                    endpoint="generate-response",
-                    input_tokens=session_input_tokens,
-                    output_tokens=session_output_tokens,
-                    total_tokens=session_total_tokens,
-                    api_calls=session_api_calls,
-                    metadata=response_metadata
-                )
-                logger.info(f"📊 Stored token usage: input={session_input_tokens}, output={session_output_tokens}, api_calls={session_api_calls}")
-            except Exception as e:
-                logger.warning(f"⚠️ Failed to store token usage: {e}")
-            
-            logger.info(f"✅ Generated Neo4j storage response with {len(search_results)} sources in {processing_time:.2f}s")
-            
-            response_data = {
-                "query": query,
-                "response": final_response.strip(),
-                "sources": list(source_files),
-                "node_types": node_types,
-                "confidence": confidence,
-                "context_used": len(search_results),
-                "search_results": len(search_results),
-                "context_length": len(retrieved_info),
-                "algorithm_used": "Agentic Knowledge Discovery" if is_knowledge_discovery else "Neo4j Storage Vector Search",
-                "agentic_mode": is_knowledge_discovery,
-                "processing_time": round(processing_time, 2),
-                "token_usage": {
-                    "input_tokens": session_input_tokens,
-                    "output_tokens": session_output_tokens,
-                    "total_tokens": session_total_tokens,
-                    "api_calls": session_api_calls
-                },
-                "quality_metrics": {
-                    "quality_score": round(quality_score, 3),
-                    "response_length_score": round(quality_metrics["response_length_score"], 3),
-                    "source_diversity_score": round(quality_metrics["source_diversity_score"], 3),
-                    "retrieval_coverage": round(quality_metrics["retrieval_coverage"], 3),
-                    "processing_efficiency": round(quality_metrics["processing_efficiency"], 3),
-                    "token_efficiency": round(quality_metrics["token_efficiency"], 3)
-                },
-                "retrieval_metadata": {
-                    "storage_search_count": len(search_results),
-                    "unique_sources": len(source_files),
-                    "node_type_distribution": node_types,
-                    "exploration_strategy": "multi_query_node_type_prioritization" if is_knowledge_discovery else "standard_vector_search"
-                }
-            }
-            
-            logger.info(f"📤 SUCCESSFUL RESPONSE SENT (Neo4j Search): Query='{query}', Sources={len(source_files)}, Confidence={confidence:.3f}")
-            logger.debug(f"📤 FULL RESPONSE DATA: {json.dumps(response_data, indent=2)}")
-            return jsonify(response_data)
-        
-        # If we have data in memory, use the advanced search system
-        # First, perform search with optimal settings (matching web UI)
-        retrieval_result = advanced_search.search(
-            query=query,
-            k_hnsw=15,
-            k_final=30,
-            entity_nodes_limit=15,
-            relationship_nodes_limit=40,
-            high_level_nodes_limit=15
+        else:
+            # Standard NodeRAG prompt for specific queries
+            answer_prompt = llm_service.prompt_manager.answer_generation.format(
+                info=retrieved_info,
+                query=query
         )
         
-        # Filter nodes by org_id BEFORE generating answer
-        org_filtered_nodes = []
-        filtered_context_parts = []
-        source_files = set()
-        node_types = {}
-        
-        logger.info(f"🔍 ADVANCED SEARCH: Found {len(retrieval_result.final_nodes)} total nodes before org_id filtering")
-        
-        # Debug: Check what org_ids exist in the results
-        org_ids_found = set()
-        for node_id in retrieval_result.final_nodes:
-            node = advanced_search.graph_manager.get_node(node_id)
-            if node and node.metadata.get('org_id'):
-                org_ids_found.add(node.metadata.get('org_id'))
-        
-        logger.info(f"🔍 ORG_ID ANALYSIS: Looking for '{org_id}', found org_ids in memory: {list(org_ids_found)}")
-        
-        for node_id in retrieval_result.final_nodes:
-            node = advanced_search.graph_manager.get_node(node_id)
-            if node and node.metadata.get('org_id') == org_id:
-                org_filtered_nodes.append(node_id)
-                
-                # Build context with structured format
-                filtered_context_parts.append(f"[{node.type.value}] {node.content}")
-                
-                # Track sources and node types
-                file_id = node.metadata.get('file_id', '')
-                if file_id:
-                    source_files.add(file_id)
-                
-                node_type = node.type.value if hasattr(node.type, 'value') else str(node.type)
-                if node_type not in node_types:
-                    node_types[node_type] = 0
-                node_types[node_type] += 1
-        
-        logger.info(f"🔍 ORG_ID FILTERING RESULT: {len(org_filtered_nodes)} nodes match org_id '{org_id}' out of {len(retrieval_result.final_nodes)} total")
-        
-        if not org_filtered_nodes:
-            # Try to provide helpful response for advanced search too
-            storage = noderag_service.get_neo4j_storage()
-            try:
-                stats = storage.get_storage_stats(org_id)
-                total_files = stats.get('stats', {}).get('total_files', 0)
-                
-                if total_files == 0:
-                    helpful_response = f"I don't have any documents in the knowledge base for your organization (org_id: {org_id}). Please upload some documents first using the upload API, then I'll be able to answer questions about your content."
-                else:
-                    helpful_response = f"I found {total_files} documents in your knowledge base, but couldn't find information relevant to '{query}'. Try asking more specific questions or use broader terms like 'overview', 'summary', or 'what data do you have available?'"
-            except:
-                helpful_response = f"I couldn't find relevant information for '{query}' in your knowledge base. This might be because there are no documents uploaded for your organization, or the query doesn't match the available content. Try asking 'what data do you have available?' to explore what's available."
-            
-            response_data = {
-                "query": query,
-                "response": helpful_response,
-                "sources": [],
-                "node_types": {},
-                "confidence": 0.0,
-                "context_used": 0,
-                "search_results": 0,
-                "algorithm_used": "NodeRAG Advanced Search (HNSW + PPR + Entity Matching)",
-                "helpful_suggestion": True,
-                "org_id": org_id
-            }
-            
-            logger.info(f"📤 EMPTY RESULTS RESPONSE SENT (Advanced Search): {json.dumps(response_data, indent=2)}")
-            return jsonify(response_data)
-        
-        # Generate answer using filtered context (matching web UI approach)
-        retrieved_info = "\n\n".join(filtered_context_parts)
-        
-        # Use the same prompt as the advanced search system
-        answer_prompt = llm_service.prompt_manager.answer_generation.format(
-            info=retrieved_info,
-            query=query
-        )
+        logger.info(f"🤖 Generating {'agentic' if is_knowledge_discovery else 'standard'} answer with prompt length: {len(answer_prompt)} characters")
         
         # Generate initial answer
         final_response = llm_service._chat_completion(
             prompt=answer_prompt,
-            temperature=temperature,
+            temperature=0.6 if is_knowledge_discovery else temperature,  # Slightly lower temp for exploration
             max_tokens=max_tokens
         )
+        
+        logger.info(f"✅ Generated response length: {len(final_response)} characters")
+        logger.info(f"📄 Response preview: {final_response[:200]}...")
         
         # If we have conversation history, enhance the answer
         if conversation_history and final_response:
@@ -1254,7 +1042,7 @@ Please provide a refined response that takes into account the conversation histo
             )
         
         # Calculate confidence based on retrieval quality
-        confidence = min(0.9, 0.6 + (len(org_filtered_nodes) * 0.02))  # Scale with number of sources
+        confidence = min(0.9, 0.6 + (len(search_results) * 0.02))
         
         # Calculate token usage for this session
         session_input_tokens = llm_service.total_input_tokens - initial_input_tokens
@@ -1263,11 +1051,11 @@ Please provide a refined response that takes into account the conversation histo
         session_total_tokens = session_input_tokens + session_output_tokens
         processing_time = time.time() - start_time
         
-        # Calculate quality metrics for advanced search
+        # Calculate quality metrics
         quality_metrics = {
             "response_length_score": min(1.0, len(final_response) / 500),  # Normalized response length
-            "source_diversity_score": len(source_files) / max(len(org_filtered_nodes), 1),  # Source diversity
-            "retrieval_coverage": min(1.0, len(org_filtered_nodes) / 30),  # Advanced search coverage
+            "source_diversity_score": len(source_files) / max(len(search_results), 1),  # Source diversity
+            "retrieval_coverage": min(1.0, len(search_results) / 20),  # Retrieval effectiveness
             "processing_efficiency": max(0.1, 1.0 / max(processing_time, 0.1)),  # Speed efficiency
             "token_efficiency": session_output_tokens / max(session_input_tokens, 1)  # Output/input ratio
         }
@@ -1283,25 +1071,16 @@ Please provide a refined response that takes into account the conversation histo
         
         # Store token usage and response metadata in Neo4j
         try:
-            storage = noderag_service.get_neo4j_storage()
             response_metadata = {
                 "query": query[:500],  # Truncate for storage
                 "response_length": len(final_response),
-                "retrieval_count": len(org_filtered_nodes),
+                "retrieval_count": len(search_results),
                 "unique_sources": len(source_files),
                 "processing_time": round(processing_time, 2),
-                "algorithm": "NodeRAG Advanced Search (HNSW + PPR + Entity Matching)",
+                "algorithm": "Agentic Knowledge Discovery" if is_knowledge_discovery else "Neo4j Storage Vector Search",
                 "confidence": confidence,
                 "quality_score": round(quality_score, 3),
-                "quality_metrics": quality_metrics,
-                "search_components": {
-                    "hnsw_results": len(retrieval_result.hnsw_results),
-                    "exact_matches": len(retrieval_result.accurate_results),
-                    "ppr_results": len(retrieval_result.ppr_results),
-                    "entity_nodes": len(retrieval_result.entity_nodes),
-                    "relationship_nodes": len(retrieval_result.relationship_nodes),
-                    "high_level_nodes": len(retrieval_result.high_level_nodes)
-                }
+                "quality_metrics": quality_metrics
             }
             
             storage.store_api_usage(
@@ -1318,7 +1097,7 @@ Please provide a refined response that takes into account the conversation histo
         except Exception as e:
             logger.warning(f"⚠️ Failed to store token usage: {e}")
         
-        logger.info(f"✅ Generated NodeRAG response with {len(org_filtered_nodes)} org-filtered sources in {processing_time:.2f}s")
+        logger.info(f"✅ Generated Neo4j storage response with {len(search_results)} sources in {processing_time:.2f}s")
         
         response_data = {
             "query": query,
@@ -1326,10 +1105,11 @@ Please provide a refined response that takes into account the conversation histo
             "sources": list(source_files),
             "node_types": node_types,
             "confidence": confidence,
-            "context_used": len(org_filtered_nodes),
-            "search_results": len(org_filtered_nodes),
+            "context_used": len(search_results),
+            "search_results": len(search_results),
             "context_length": len(retrieved_info),
-            "algorithm_used": "NodeRAG Advanced Search (HNSW + PPR + Entity Matching)",
+            "algorithm_used": "Agentic Knowledge Discovery" if is_knowledge_discovery else "Neo4j Storage Vector Search",
+            "agentic_mode": is_knowledge_discovery,
             "processing_time": round(processing_time, 2),
             "token_usage": {
                 "input_tokens": session_input_tokens,
@@ -1345,18 +1125,15 @@ Please provide a refined response that takes into account the conversation histo
                 "processing_efficiency": round(quality_metrics["processing_efficiency"], 3),
                 "token_efficiency": round(quality_metrics["token_efficiency"], 3)
             },
-            "retrieval_metadata": retrieval_result.search_metadata,
-            "search_components": {
-                "hnsw_results": len(retrieval_result.hnsw_results),
-                "exact_matches": len(retrieval_result.accurate_results), 
-                "ppr_results": len(retrieval_result.ppr_results),
-                "entity_nodes": len(retrieval_result.entity_nodes),
-                "relationship_nodes": len(retrieval_result.relationship_nodes),
-                "high_level_nodes": len(retrieval_result.high_level_nodes)
+            "retrieval_metadata": {
+                "storage_search_count": len(search_results),
+                "unique_sources": len(source_files),
+                "node_type_distribution": node_types,
+                "exploration_strategy": "multi_query_node_type_prioritization" if is_knowledge_discovery else "standard_vector_search"
             }
         }
         
-        logger.info(f"📤 SUCCESSFUL RESPONSE SENT (Advanced Search): Query='{query}', Sources={len(source_files)}, Confidence={confidence:.3f}")
+        logger.info(f"📤 SUCCESSFUL RESPONSE SENT (Neo4j Search): Query='{query}', Sources={len(source_files)}, Confidence={confidence:.3f}")
         logger.debug(f"📤 FULL RESPONSE DATA: {json.dumps(response_data, indent=2)}")
         return jsonify(response_data)
         
