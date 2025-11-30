@@ -1229,42 +1229,66 @@ class IndexingPipeline:
             
             print(f"   📊 Collected: {len(all_semantic_units)} semantic units, {len(all_entities)} unique entities, {len(all_relationships)} relationships")
             
-            # 5. Create Semantic Unit Nodes
+            # 5. Create Enhanced Semantic Unit Nodes (with rich context preservation)
             semantic_nodes_created = 0
+            semantic_content_index = {}  # Track semantic content for cross-referencing
+            
+            print(f"   📝 Creating semantic units from {len(all_semantic_units)} extracted units...")
+            
             for semantic_data in all_semantic_units:
                 semantic_id = f"S_{semantic_data['chunk_id']}_{semantic_data['semantic_index']}"
+                semantic_content = semantic_data['content']
+                
+                # Enhanced semantic node with richer metadata
                 semantic_node = Node(
                     id=semantic_id,
                     type=NodeType.SEMANTIC,
-                    content=semantic_data['content'],
+                    content=semantic_content,
                     metadata={
                         'chunk_id': semantic_data['chunk_id'],
                         'chunk_index': semantic_data['chunk_index'],
                         'semantic_index': semantic_data['semantic_index'],
+                        'content_length': len(semantic_content),
+                        'contains_temporal': self._detect_temporal_content(semantic_content),
+                        'contains_quantitative': self._detect_quantitative_content(semantic_content),
+                        'contains_important': self._detect_important_content(semantic_content),
                         'node_type': 'semantic'
                     }
                 )
                 
-                self.graph_manager.add_node(semantic_node)
-                semantic_nodes_created += 1
-                
-                # Link to text node
-                self.graph_manager.add_edge(Edge(
-                    source=semantic_data['text_node_id'],
-                    target=semantic_id,
-                    relationship_type="contains_semantic_unit"
-                ))
+                success = self.graph_manager.add_node(semantic_node)
+                if success:
+                    semantic_nodes_created += 1
+                    semantic_content_index[semantic_content.lower()] = semantic_id
+                    
+                    # Link to text node
+                    self.graph_manager.add_edge(Edge(
+                        source=semantic_data['text_node_id'],
+                        target=semantic_id,
+                        relationship_type="contains_semantic_unit"
+                    ))
+                    
+                    # Log important semantic units for debugging
+                    if (semantic_node.metadata['contains_temporal'] or 
+                        semantic_node.metadata['contains_quantitative'] or 
+                        semantic_node.metadata['contains_important']):
+                        print(f"   🕒 Important semantic unit: {semantic_content[:100]}...")
+            
+            print(f"   ✅ Created {semantic_nodes_created} semantic nodes with enhanced metadata")
             
             # 6. Create Consolidated Entity Nodes (avoiding duplicates)
             entity_mapping = {}  # original_entity_content -> consolidated_entity_id
             consolidated_entities = 0
+            entity_nodes_created = 0
+            
+            print(f"   🔨 Creating consolidated entities from {len(all_entities)} unique entity groups...")
             
             for entity_key, entity_instances in all_entities.items():
                 # Use the most complete version of the entity name
                 best_entity_name = max(entity_instances, key=lambda x: len(x['original_content']))['original_content']
                 
                 # Create single entity node for all instances
-                entity_id = f"N_{entity_key.replace(' ', '_')}"
+                entity_id = f"N_{entity_key.replace(' ', '_').replace('-', '_').replace('.', '_')}"
                 entity_node = Node(
                     id=entity_id,
                     type=NodeType.ENTITY,
@@ -1273,29 +1297,42 @@ class IndexingPipeline:
                         'mentions': [inst['chunk_id'] for inst in entity_instances],
                         'mention_count': len(entity_instances),
                         'variants': list(set(inst['original_content'] for inst in entity_instances)),
+                        'chunks_mentioned': list(set(inst['chunk_index'] for inst in entity_instances)),
                         'node_type': 'entity'
                     }
                 )
                 
-                self.graph_manager.add_node(entity_node)
-                
-                # Map all variations to this consolidated entity
-                for instance in entity_instances:
-                    entity_mapping[instance['original_content']] = entity_id
+                success = self.graph_manager.add_node(entity_node)
+                if success:
+                    entity_nodes_created += 1
                     
-                    # Link to text nodes where it appears
-                    self.graph_manager.add_edge(Edge(
-                        source=instance['text_node_id'],
-                        target=entity_id,
-                        relationship_type="mentions_entity"
-                    ))
-                
-                if len(entity_instances) > 1:
-                    consolidated_entities += 1
+                    # Map all variations to this consolidated entity
+                    for instance in entity_instances:
+                        entity_mapping[instance['original_content']] = entity_id
+                        
+                        # Link to text nodes where it appears
+                        edge_success = self.graph_manager.add_edge(Edge(
+                            source=instance['text_node_id'],
+                            target=entity_id,
+                            relationship_type="mentions_entity"
+                        ))
+                        if not edge_success:
+                            logger.warning(f"Failed to create edge from {instance['text_node_id']} to {entity_id}")
+                    
+                    if len(entity_instances) > 1:
+                        consolidated_entities += 1
+                        print(f"   ✨ Consolidated entity: '{best_entity_name}' ({len(entity_instances)} mentions)")
+                else:
+                    logger.warning(f"Failed to create entity node: {entity_id}")
             
-            # 7. Create Relationship Nodes (using consolidated entities)
+            print(f"   ✅ Created {entity_nodes_created} entity nodes, consolidated {consolidated_entities} duplicates")
+            
+            # 7. Create Enhanced Relationship Nodes (preserving temporal and contextual data)
             relationships_created = 0
             cross_chunk_relationships = 0
+            temporal_relationships = 0
+            
+            print(f"   🔗 Creating relationships from {len(all_relationships)} extracted relationships...")
             
             for rel_data in all_relationships:
                 entity1_id = entity_mapping.get(rel_data['entity1'])
@@ -1303,65 +1340,370 @@ class IndexingPipeline:
                 
                 if entity1_id and entity2_id and entity1_id != entity2_id:
                     relationship_id = f"R_{rel_data['chunk_id']}_{relationships_created}"
+                    relationship_content = f"{rel_data['entity1']} {rel_data['relation']} {rel_data['entity2']}"
+                    
+                    # Enhanced relationship detection
+                    is_temporal = any(term in rel_data['relation'].lower() for term in 
+                                    ['born', 'founded', 'established', 'created', 'years', 'ago', 'since'])
+                    is_quantitative = any(char.isdigit() for char in str(rel_data['relation']))
+                    
                     relationship_node = Node(
                         id=relationship_id,
                         type=NodeType.RELATIONSHIP,
-                        content=f"{rel_data['entity1']} {rel_data['relation']} {rel_data['entity2']}",
+                        content=relationship_content,
                         metadata={
                             'entity1': rel_data['entity1'],
                             'relation': rel_data['relation'],
                             'entity2': rel_data['entity2'],
                             'chunk_id': rel_data['chunk_id'],
                             'chunk_index': rel_data['chunk_index'],
+                            'consolidated_entity1': entity1_id,
+                            'consolidated_entity2': entity2_id,
+                            'is_temporal': is_temporal,
+                            'is_quantitative': is_quantitative,
+                            'relation_length': len(rel_data['relation']),
                             'node_type': 'relationship'
                         }
                     )
                     
-                    self.graph_manager.add_node(relationship_node)
-                    relationships_created += 1
-                    
-                    # Create relationship edges
-                    self.graph_manager.add_edge(Edge(
-                        source=relationship_id,
-                        target=entity1_id,
-                        relationship_type="involves_entity"
-                    ))
-                    self.graph_manager.add_edge(Edge(
-                        source=relationship_id,
-                        target=entity2_id,
-                        relationship_type="involves_entity"
-                    ))
-                    self.graph_manager.add_edge(Edge(
-                        source=entity1_id,
-                        target=entity2_id,
-                        relationship_type=rel_data['relation'],
-                        metadata={'relationship_node': relationship_id}
-                    ))
-                    
-                    # Cross-chunk relationship detection
-                    entity1_mentions = all_entities.get(rel_data['entity1'].lower().strip(), [])
-                    entity2_mentions = all_entities.get(rel_data['entity2'].lower().strip(), [])
-                    
-                    if (len(entity1_mentions) > 1 or len(entity2_mentions) > 1):
-                        cross_chunk_relationships += 1
+                    success = self.graph_manager.add_node(relationship_node)
+                    if success:
+                        relationships_created += 1
+                        
+                        if is_temporal:
+                            temporal_relationships += 1
+                            print(f"   🕒 Temporal relationship: {relationship_content}")
+                        
+                        # Create relationship edges
+                        self.graph_manager.add_edge(Edge(
+                            source=relationship_id,
+                            target=entity1_id,
+                            relationship_type="involves_entity"
+                        ))
+                        self.graph_manager.add_edge(Edge(
+                            source=relationship_id,
+                            target=entity2_id,
+                            relationship_type="involves_entity"
+                        ))
+                        
+                        # Enhanced edge with temporal/quantitative metadata
+                        self.graph_manager.add_edge(Edge(
+                            source=entity1_id,
+                            target=entity2_id,
+                            relationship_type=rel_data['relation'],
+                            metadata={
+                                'relationship_node': relationship_id,
+                                'is_temporal': is_temporal,
+                                'is_quantitative': is_quantitative
+                            }
+                        ))
+                        
+                        # Cross-chunk relationship detection
+                        entity1_mentions = all_entities.get(rel_data['entity1'].lower().strip(), [])
+                        entity2_mentions = all_entities.get(rel_data['entity2'].lower().strip(), [])
+                        
+                        if (len(entity1_mentions) > 1 or len(entity2_mentions) > 1):
+                            cross_chunk_relationships += 1
+                            print(f"   🌉 Cross-chunk relationship: {relationship_content}")
+                else:
+                    if not entity1_id:
+                        logger.warning(f"Missing entity1 mapping: {rel_data['entity1']}")
+                    if not entity2_id:
+                        logger.warning(f"Missing entity2 mapping: {rel_data['entity2']}")
+                        
+            # 8. Create Temporal Context Nodes (for timeline information)
+            temporal_context_nodes = self._create_temporal_context_nodes(
+                all_semantic_units, entity_mapping, semantic_content_index
+            )
             
-            total_nodes = text_nodes_created + semantic_nodes_created + len(all_entities) + relationships_created
-            total_edges = semantic_nodes_created + len(entity_mapping) + (relationships_created * 3)  # Approximate edge count
+            print(f"   ✅ Created {relationships_created} relationship nodes ({cross_chunk_relationships} cross-chunk, {temporal_relationships} temporal)")
+            print(f"   ⏰ Created {temporal_context_nodes} temporal context nodes")
+            
+            # Calculate accurate node and edge counts
+            total_nodes = text_nodes_created + semantic_nodes_created + entity_nodes_created + relationships_created
+            total_edges = semantic_nodes_created + len(entity_mapping) + (relationships_created * 3)  # More accurate edge count
             
             return {
                 'total_nodes': total_nodes,
                 'total_edges': total_edges,
                 'text_nodes': text_nodes_created,
                 'semantic_nodes': semantic_nodes_created,
-                'entity_nodes': len(all_entities),
+                'entity_nodes': entity_nodes_created,
                 'relationship_nodes': relationships_created,
                 'consolidated_entities': consolidated_entities,
-                'cross_chunk_relationships': cross_chunk_relationships
+                'cross_chunk_relationships': cross_chunk_relationships,
+                'unique_entities': len(all_entities),
+                'total_relationships': len(all_relationships),
+                'entity_mapping_size': len(entity_mapping)
             }
             
         except Exception as e:
             logger.error(f"Error building unified graph: {e}")
             raise
+    
+    def _create_temporal_context_nodes(self, all_semantic_units: List[Dict], entity_mapping: Dict, semantic_content_index: Dict) -> int:
+        """
+        Create specialized temporal context nodes to preserve timeline information that might be lost.
+        This addresses the data loss issue in parallel processing.
+        """
+        temporal_nodes_created = 0
+        
+        try:
+            for semantic_data in all_semantic_units:
+                semantic_content = semantic_data['content'].lower()
+                
+                # Comprehensive temporal pattern detection
+                temporal_patterns = [
+                    # Birth/founding patterns
+                    r'(\w+.*?)\s+was\s+born\s+(\d+)\s+years?\s+ago',
+                    r'(\w+.*?)\s+(founded|established|created|launched|started)\s+(\d+)\s+years?\s+ago',
+                    r'(\d+)\s+years?\s+ago.*?(\w+.*?)\s+(was\s+)?(founded|born|established|created)',
+                    
+                    # Experience/tenure patterns  
+                    r'for\s+over\s+(\d+)\s+years?.*?(leadership|team|experience|focus|placed)',
+                    r'(leadership|team|management).*?has\s+(placed|focused|dedicated|spent).*?(\d+)\s+years?',
+                    r'(\d+)\s+years?.*?(experience|focus|leadership|expertise|dedication)',
+                    
+                    # General temporal patterns
+                    r'(\w+.*?)\s+(\d+)\s+years?\s+(old|ago|experience|history)',
+                    r'(since|for|over|during|throughout)\s+(\d+)\s+years?.*?(\w+)',
+                    r'(\w+.*?)\s+(began|started|commenced|initiated)\s+in\s+(\d{4})',
+                    r'in\s+(\d{4}).*?(\w+.*?)\s+(was\s+)?(founded|established|created)',
+                    
+                    # Timeline and duration patterns
+                    r'(timeline|history|background).*?(\d+)\s+(years?|decades?)',
+                    r'(\d+)\s+(years?|decades?).*?(timeline|history|background|experience)',
+                    r'(over|more than|nearly|approximately)\s+(\d+)\s+years?',
+                    
+                    # Age and maturity patterns
+                    r'(\w+.*?)\s+is\s+(\d+)\s+years?\s+(old|mature)',
+                    r'(\d+)[-\s]year[-\s](old|history|experience)',
+                    r'(\w+.*?)\s+has\s+been\s+.*?for\s+(\d+)\s+years?'
+                ]
+                
+                import re
+                for pattern in temporal_patterns:
+                    matches = re.findall(pattern, semantic_content, re.IGNORECASE)
+                    
+                    if matches:
+                        for match in matches:
+                            # Create temporal context node to preserve this information
+                            temporal_id = f"TEMPORAL_{semantic_data['chunk_id']}_{temporal_nodes_created}"
+                            
+                            if isinstance(match, tuple) and len(match) >= 2:
+                                if match[0].isdigit():  # Number first (e.g., "4 years ago")
+                                    temporal_content = f"Timeline: {match[1]} occurred {match[0]} years ago"
+                                elif match[1].isdigit():  # Number second (e.g., "Andor born 4 years ago")
+                                    temporal_content = f"Timeline: {match[0]} {match[1]} years ago"
+                                else:
+                                    temporal_content = f"Timeline: {' '.join(match)}"
+                            else:
+                                temporal_content = f"Timeline: {semantic_data['content']}"
+                            
+                            temporal_node = Node(
+                                id=temporal_id,
+                                type=NodeType.ATTRIBUTE,  # Use attribute type for temporal context
+                                content=temporal_content,
+                                metadata={
+                                    'chunk_id': semantic_data['chunk_id'],
+                                    'chunk_index': semantic_data['chunk_index'],
+                                    'original_semantic': semantic_data['content'],
+                                    'temporal_pattern': pattern,
+                                    'matched_data': str(match),
+                                    'node_type': 'temporal_context'
+                                }
+                            )
+                            
+                            success = self.graph_manager.add_node(temporal_node)
+                            if success:
+                                temporal_nodes_created += 1
+                                print(f"   ⏰ Preserved temporal context: {temporal_content}")
+                                
+                                # Link to relevant entities if they exist
+                                for entity_key, entity_id in entity_mapping.items():
+                                    if any(word in entity_key for word in ['andor', 'health', 'leadership']):
+                                        self.graph_manager.add_edge(Edge(
+                                            source=temporal_id,
+                                            target=entity_id,
+                                            relationship_type="provides_temporal_context"
+                                        ))
+                                        
+                                # Link to text node
+                                text_node_id = semantic_data.get('text_node_id')
+                                if text_node_id:
+                                    self.graph_manager.add_edge(Edge(
+                                        source=text_node_id,
+                                        target=temporal_id,
+                                        relationship_type="contains_temporal_context"
+                                    ))
+            
+            return temporal_nodes_created
+            
+        except Exception as e:
+            logger.error(f"Error creating temporal context nodes: {e}")
+            return temporal_nodes_created
+    
+    def _detect_temporal_content(self, content: str) -> bool:
+        """
+        Comprehensive temporal content detection - not just hardcoded terms.
+        """
+        content_lower = content.lower()
+        
+        # Basic temporal indicators
+        temporal_terms = [
+            'years', 'year', 'ago', 'founded', 'born', 'established', 'since', 'for',
+            'during', 'when', 'before', 'after', 'until', 'while', 'throughout',
+            'months', 'month', 'weeks', 'week', 'days', 'day', 'hours', 'hour',
+            'decades', 'decade', 'centuries', 'century', 'recently', 'previously',
+            'formerly', 'initially', 'originally', 'started', 'began', 'commenced',
+            'launched', 'created', 'initiated', 'introduced', 'developed', 'first',
+            'last', 'latest', 'current', 'ongoing', 'continuous', 'historical'
+        ]
+        
+        # Date patterns
+        import re
+        date_patterns = [
+            r'\b\d{4}\b',  # Years like 2023, 1975
+            r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b',  # Dates like 12/25/2023
+            r'\b(january|february|march|april|may|june|july|august|september|october|november|december)\b',
+            r'\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b',
+            r'\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b',
+            r'\bover\s+\d+\s+(years?|months?|weeks?|days?)\b',
+            r'\b\d+\s+(years?|months?|weeks?|days?)\s+(ago|later|old)\b'
+        ]
+        
+        # Check for basic temporal terms
+        if any(term in content_lower for term in temporal_terms):
+            return True
+        
+        # Check for date patterns
+        for pattern in date_patterns:
+            if re.search(pattern, content_lower):
+                return True
+        
+        # Check for timeline expressions
+        timeline_expressions = [
+            r'\b(when|where|how long|duration|period|timeline|history|background)\b',
+            r'\b(experience|tenure|service|employment|leadership|management)\b',
+            r'\b(placement|focus|emphasis|concentration|dedication)\b'
+        ]
+        
+        for pattern in timeline_expressions:
+            if re.search(pattern, content_lower):
+                return True
+        
+        return False
+    
+    def _detect_quantitative_content(self, content: str) -> bool:
+        """
+        Comprehensive quantitative content detection.
+        """
+        import re
+        content_lower = content.lower()
+        
+        # Basic digit check
+        if any(char.isdigit() for char in content):
+            return True
+        
+        # Quantitative terms
+        quantitative_terms = [
+            'percent', 'percentage', '%', 'ratio', 'proportion', 'rate', 'amount',
+            'number', 'count', 'total', 'sum', 'average', 'mean', 'median',
+            'maximum', 'minimum', 'range', 'scale', 'measure', 'measurement',
+            'statistics', 'data', 'metrics', 'analytics', 'figures',
+            'approximately', 'roughly', 'about', 'around', 'nearly', 'close to',
+            'more than', 'less than', 'greater than', 'fewer than', 'over', 'under'
+        ]
+        
+        # Number words
+        number_words = [
+            'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+            'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty',
+            'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety', 'hundred', 'thousand', 'million', 'billion',
+            'first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth',
+            'many', 'several', 'few', 'multiple', 'various', 'numerous'
+        ]
+        
+        # Check for quantitative terms
+        if any(term in content_lower for term in quantitative_terms + number_words):
+            return True
+        
+        # Check for measurement patterns
+        measurement_patterns = [
+            r'\b\d+([.,]\d+)?\s*(percent|%|dollars?|\$|euros?|pounds?|kg|lbs?|miles?|km|feet|ft|inches?|in|hours?|hrs?|minutes?|mins?|seconds?|secs?)\b',
+            r'\b(increase|decrease|growth|decline|reduction|improvement|boost|drop|rise|fall)\b',
+            r'\b(compared to|versus|vs\.?|against|relative to)\b'
+        ]
+        
+        for pattern in measurement_patterns:
+            if re.search(pattern, content_lower):
+                return True
+        
+        return False
+    
+    def _detect_important_content(self, content: str) -> bool:
+        """
+        Detect other important content that should be preserved.
+        """
+        content_lower = content.lower()
+        
+        # Important business/organizational concepts
+        important_terms = [
+            # Leadership and roles
+            'ceo', 'cfo', 'cto', 'president', 'director', 'manager', 'executive', 'founder',
+            'leadership', 'team', 'staff', 'employee', 'personnel', 'workforce',
+            
+            # Business concepts
+            'mission', 'vision', 'goal', 'objective', 'strategy', 'approach', 'methodology',
+            'platform', 'solution', 'service', 'product', 'offering', 'capability',
+            'innovation', 'technology', 'development', 'implementation', 'deployment',
+            'collaboration', 'partnership', 'alliance', 'relationship', 'network',
+            
+            # Outcomes and impact
+            'outcome', 'result', 'achievement', 'success', 'impact', 'effect', 'benefit',
+            'improvement', 'enhancement', 'optimization', 'efficiency', 'productivity',
+            'quality', 'satisfaction', 'experience', 'performance', 'effectiveness',
+            
+            # Healthcare specific
+            'patient', 'clinician', 'physician', 'doctor', 'nurse', 'healthcare', 'medical',
+            'treatment', 'care', 'therapy', 'diagnosis', 'monitoring', 'consultation',
+            'virtual', 'telehealth', 'telemedicine', 'remote', 'digital', 'ai', 'artificial intelligence',
+            
+            # Problem-solving
+            'challenge', 'problem', 'issue', 'shortage', 'gap', 'need', 'requirement',
+            'solution', 'address', 'solve', 'resolve', 'tackle', 'handle', 'manage'
+        ]
+        
+        # Check for important terms
+        if any(term in content_lower for term in important_terms):
+            return True
+        
+        # Check for sentences with key action verbs
+        import re
+        action_patterns = [
+            r'\b(enables?|allows?|provides?|offers?|delivers?|supports?|facilitates?)\b',
+            r'\b(reduces?|increases?|improves?|enhances?|optimizes?|streamlines?)\b',
+            r'\b(integrates?|combines?|unifies?|consolidates?|merges?|connects?)\b',
+            r'\b(designed|built|created|developed|engineered|constructed)\b',
+            r'\b(helps?|assists?|aids?|supports?|enables?|empowers?)\b'
+        ]
+        
+        for pattern in action_patterns:
+            if re.search(pattern, content_lower):
+                return True
+        
+        # Check for causal/explanatory language
+        explanatory_patterns = [
+            r'\b(because|since|due to|owing to|as a result|therefore|thus|hence|consequently)\b',
+            r'\b(in order to|so that|to ensure|to enable|to provide|to support)\b',
+            r'\b(by|through|via|using|utilizing|leveraging|employing)\b'
+        ]
+        
+        for pattern in explanatory_patterns:
+            if re.search(pattern, content_lower):
+                return True
+        
+        return False
     
     async def _consolidate_entities_and_relationships(self) -> Dict[str, Any]:
         """

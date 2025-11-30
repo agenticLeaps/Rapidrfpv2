@@ -283,3 +283,65 @@ class GraphManager:
         # Update the existing node
         self.graph.nodes[existing_id]['metadata'] = merged_metadata
         logger.debug(f"Merged entity {new_node.id} into {existing_id}")
+    
+    def merge_entities(self, primary_entity_id: str, duplicate_entity_id: str) -> bool:
+        """
+        Public method to merge two entity nodes.
+        Merges duplicate_entity into primary_entity and removes the duplicate.
+        """
+        try:
+            primary_node = self.get_node(primary_entity_id)
+            duplicate_node = self.get_node(duplicate_entity_id)
+            
+            if not primary_node or not duplicate_node:
+                logger.warning(f"Cannot merge entities: primary={primary_entity_id}, duplicate={duplicate_entity_id}")
+                return False
+            
+            # Merge metadata
+            merged_metadata = primary_node.metadata.copy()
+            for key, value in duplicate_node.metadata.items():
+                if key == 'mentions':
+                    # Combine mention lists
+                    if 'mentions' in merged_metadata:
+                        merged_metadata['mentions'] = list(set(merged_metadata['mentions'] + value))
+                    else:
+                        merged_metadata['mentions'] = value
+                elif key == 'variants':
+                    # Combine variant lists
+                    if 'variants' in merged_metadata:
+                        merged_metadata['variants'] = list(set(merged_metadata['variants'] + value))
+                    else:
+                        merged_metadata['variants'] = value
+                else:
+                    merged_metadata[key] = value
+            
+            # Update mention count
+            if 'mentions' in merged_metadata:
+                merged_metadata['mention_count'] = len(merged_metadata['mentions'])
+            
+            # Update the primary node metadata
+            self.graph.nodes[primary_entity_id]['metadata'] = merged_metadata
+            
+            # Transfer all edges from duplicate to primary
+            duplicate_edges = list(self.graph.edges(duplicate_entity_id, data=True))
+            for source, target, edge_data in duplicate_edges:
+                # Remove old edge
+                self.graph.remove_edge(source, target)
+                
+                # Add new edge with primary entity
+                if source == duplicate_entity_id:
+                    self.graph.add_edge(primary_entity_id, target, **edge_data)
+                else:
+                    self.graph.add_edge(source, primary_entity_id, **edge_data)
+            
+            # Remove the duplicate node
+            if duplicate_entity_id in self.graph.nodes:
+                self.graph.remove_node(duplicate_entity_id)
+                logger.info(f"Successfully merged entity {duplicate_entity_id} into {primary_entity_id}")
+                return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error merging entities {primary_entity_id} and {duplicate_entity_id}: {e}")
+            return False

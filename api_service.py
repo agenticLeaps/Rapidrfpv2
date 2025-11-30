@@ -1059,16 +1059,16 @@ RESPONSE:"""
         # Generate initial answer
         final_response = llm_service._chat_completion(
             prompt=answer_prompt,
-            temperature=0.1,  # Very low temperature for deterministic, single responses
+            temperature=0.3,  # Balanced temperature for comprehensive responses
             max_tokens=max_tokens
         )
         
         logger.info(f"✅ Generated response length: {len(final_response)} characters")
         logger.info(f"📄 Response preview: {final_response[:200]}...")
         
-        # If we have conversation history, enhance the answer with strict formatting
+        # If we have conversation history, enhance the answer with comprehensive formatting
         if conversation_history and final_response:
-            enhanced_prompt = f"""You are a precise knowledge assistant. Provide exactly ONE direct answer based on the context and conversation history.
+            enhanced_prompt = f"""You are a knowledgeable assistant. Provide exactly ONE comprehensive, contextual answer based on the conversation history and generated response.
 
 Previous conversation:
 {conversation_history}
@@ -1077,27 +1077,32 @@ Current question: {query}
 
 Generated answer: {final_response}
 
-STRICT INSTRUCTIONS:
-- Provide ONE refined answer only
-- NEVER provide multiple options (no "Option 1", "Option 2", "Here are a few", etc.)
-- NO explanations or justifications for your refinement
-- NO meta-commentary about response quality
-- Consider the conversation history but maintain factual accuracy
-- If the generated answer is correct, keep it simple and direct
+INSTRUCTIONS:
+- Provide ONE detailed, contextual answer that considers the conversation flow
+- Make the response comprehensive and informative
+- Include relevant details and context from the source material
+- Explain concepts clearly and provide background when helpful
+- Consider what the user is trying to understand based on their previous questions
+- If the generated answer needs more detail, expand it appropriately
+- Maintain factual accuracy from the source material
 
 FORBIDDEN WORDS/PHRASES:
-- "Option"
-- "Here are"
-- "Choice" 
-- "Alternative"
-- "Why it's better"
-- "Which option"
+- "Option 1", "Option 2", "Choice A", "Choice B" 
+- "Here are several", "Here are a few"
+- "Alternative", "Alternatively"
+- "Multiple options", "Different approaches"
+
+RESPONSE FORMAT:
+- Write in clear, informative paragraphs
+- Connect to previous conversation context when relevant
+- Provide comprehensive details rather than one-liners
+- Use specific information from the source material
 
 Refined response:"""
             
             final_response = llm_service._chat_completion(
                 prompt=enhanced_prompt,
-                temperature=0.1,  # Very low temperature for deterministic responses
+                temperature=0.3,  # Balanced temperature for comprehensive responses
                 max_tokens=max_tokens
             )
         

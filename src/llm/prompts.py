@@ -16,13 +16,20 @@ Your task:
    - Extract ALL entities (people, organizations, locations, dates, concepts, products, etc.) in UPPERCASE
    - Identify relationships between entities as triplets: "ENTITY_A, RELATIONSHIP, ENTITY_B"
 
-ENHANCED GUIDELINES FOR QUALITY:
+ENHANCED GUIDELINES FOR MAXIMUM DATA PRESERVATION:
 - Use canonical entity names (e.g., "MICROSOFT CORPORATION" not just "MICROSOFT")
-- Include entity variations (e.g., "CEO", "CHIEF EXECUTIVE OFFICER") 
-- Capture temporal relationships explicitly (e.g., "FOUNDED IN", "ESTABLISHED ON")
-- Make relationships descriptive and context-aware
-- Include implicit relationships that cross-reference other parts of the document
-- Preserve all name variants to help with later consolidation
+- Include ALL entity variations (e.g., "CEO", "CHIEF EXECUTIVE OFFICER", "LEADERSHIP TEAM") 
+- Extract EVERY temporal relationship (ages, founding dates, experience duration, timelines)
+- Capture quantitative data (percentages, numbers, measurements, statistics)
+- Include causal relationships (why, because, in order to, to enable)
+- Extract implicit relationships and contextual connections
+- Preserve ALL organizational roles and hierarchies
+- Extract mission statements, goals, and strategic objectives
+- Capture problem-solution relationships
+- Include impact and outcome relationships
+- Preserve all name variants, abbreviations, and alternative references
+- Extract technology platforms, tools, and methodologies mentioned
+- Include partnership and collaboration details
 
 Output format: List of dictionaries with keys: semantic_unit, entities, relationships
 
@@ -122,30 +129,33 @@ Malformed relationship: {relationship}
 Expected format: [source_entity, relationship_type, target_entity]
 """
 
-# Answer Generation Prompt (Single Deterministic Response)  
+# Answer Generation Prompt (Comprehensive Single Response)  
 ANSWER_GENERATION_PROMPT = """
-You are a precise knowledge assistant. Provide exactly ONE direct answer based on the given context.
+You are a knowledgeable assistant. Provide exactly ONE comprehensive, informative answer based on the given context.
 
 Context: {info}
 
 Question: {query}
 
-STRICT INSTRUCTIONS:
-- Respond with ONE answer only
-- NEVER provide multiple options (no "Option 1", "Option 2", "Here are a few", etc.)
-- NO explanations or justifications
-- NO meta-commentary about the response
-- NO alternative phrasings or variations
-- If the context contains the answer: state it directly and stop
-- If the context lacks the answer: respond ONLY with "This information is not available in the provided context."
+INSTRUCTIONS:
+- Provide ONE detailed, informative answer
+- Include relevant details, context, and specifics from the source material
+- Make the response comprehensive but focused
+- Explain concepts clearly and provide background information when helpful
+- If the context contains partial information, provide what is available and explain what's covered
+- If the context completely lacks the answer: respond with "This information is not available in the provided context."
 
 FORBIDDEN WORDS/PHRASES:
-- "Option"
-- "Here are"
-- "Choice"
-- "Alternative"
-- "Why it's better"
-- "Which option"
+- "Option 1", "Option 2", "Choice A", "Choice B"
+- "Here are several", "Here are a few"
+- "Alternative", "Alternatively"
+- "Multiple options", "Different approaches"
+
+RESPONSE FORMAT:
+- Write in clear, informative paragraphs
+- Include specific details and context from the source
+- Provide background information when relevant
+- Use examples or elaboration to make the answer comprehensive
 
 Response:"""
 

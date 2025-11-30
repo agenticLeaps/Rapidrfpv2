@@ -405,7 +405,7 @@ class AdvancedSearchSystem:
                 query=query
             )
             
-            response = self.llm_service._chat_completion(answer_prompt, temperature=0.1)  # Low temperature for deterministic responses
+            response = self.llm_service._chat_completion(answer_prompt, temperature=0.3)  # Balanced temperature for comprehensive responses
             
             return {
                 'query': query,

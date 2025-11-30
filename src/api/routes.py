@@ -1056,7 +1056,7 @@ def answer_generation_endpoint():
             query=query
         )
         
-        response = llm_service._chat_completion(answer_prompt, temperature=0.1)  # Low temperature for deterministic responses
+        response = llm_service._chat_completion(answer_prompt, temperature=0.3)  # Balanced temperature for comprehensive responses
         
         # Build comprehensive response
         result = {
