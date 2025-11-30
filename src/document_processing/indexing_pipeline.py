@@ -646,11 +646,19 @@ class IndexingPipeline:
             start_batch = 0
             embeddings_generated = 0
             
+            # Check how many nodes are already in HNSW index
+            already_indexed_count = hnsw_service.current_count
+            
             if checkpoint_data and Config.ENABLE_CHECKPOINTS:
                 start_batch = checkpoint_data.get('last_completed_batch', 0)
                 embeddings_generated = checkpoint_data.get('embeddings_generated', 0)
                 if start_batch > 0:
                     print(f"   📁 Resuming from checkpoint: batch {start_batch + 1}, {embeddings_generated} embeddings done")
+            
+            # Alternative: use HNSW count to determine resume point
+            if already_indexed_count > 0 and start_batch == 0:
+                print(f"   🔄 Found {already_indexed_count} existing embeddings in HNSW index")
+                embeddings_generated = already_indexed_count
             
             # Prepare texts for embedding
             texts = [node.content for node in all_nodes]
@@ -679,7 +687,7 @@ class IndexingPipeline:
                 
                 # Update nodes with embeddings and add to HNSW index
                 batch_success_count = 0
-                for node_id, embedding in zip(batch_node_ids, embeddings):
+                for i, (node_id, embedding) in enumerate(zip(batch_node_ids, embeddings)):
                     node = self.graph_manager.get_node(node_id)
                     if node:
                         node.embeddings = embedding
@@ -690,6 +698,12 @@ class IndexingPipeline:
                             'type': node.type.value,
                             'content': node.content[:200]  # Store first 200 chars for metadata
                         }
+                        
+                        # Debug: Check embedding properties
+                        if current_batch_num == 1 and i == 0:  # Only log for first embedding
+                            print(f"   🔍 Debug: First embedding - dimension: {len(embedding)}, type: {type(embedding)}")
+                            print(f"   🔍 HNSW service status: current_count={hnsw_service.current_count}, max_elements={hnsw_service.max_elements}")
+                        
                         success = hnsw_service.add_node_embedding(
                             node_id=node_id,
                             embedding=embedding,
@@ -700,7 +714,11 @@ class IndexingPipeline:
                             batch_success_count += 1
                             embeddings_generated += 1
                         else:
-                            logger.warning(f"Failed to add node {node_id} to HNSW index")
+                            print(f"   ❌ Failed to add node {node_id} to HNSW index (batch {current_batch_num}, item {i+1})")
+                            if current_batch_num <= 3:  # Debug first few failures
+                                print(f"   🔍 Debug: node_id={node_id}, embedding_len={len(embedding)}")
+                    else:
+                        print(f"   ❌ Node {node_id} not found in graph manager")
                 
                 # Save checkpoint every N batches
                 if Config.ENABLE_CHECKPOINTS and current_batch_num % Config.CHECKPOINT_INTERVAL == 0:
@@ -1965,6 +1983,7 @@ Relationship:"""
             checkpoint_data = {
                 'last_completed_batch': batch_num,
                 'embeddings_generated': embeddings_generated,
+                'hnsw_count': self.hnsw_service.current_count if self.hnsw_service else 0,
                 'timestamp': time.time(),
                 'environment': 'render' if Config.IS_RENDER else 'cloud' if Config.IS_CLOUD else 'local',
                 'completed': completed
@@ -1990,3 +2009,41 @@ Relationship:"""
                 print("   🧹 Checkpoint file cleaned up")
         except Exception as e:
             logger.warning(f"Failed to cleanup checkpoint: {e}")
+    
+    def reset_embeddings_and_index(self) -> bool:
+        """Reset embeddings and HNSW index for a fresh start."""
+        try:
+            print("   🔄 Resetting embeddings and HNSW index...")
+            
+            # Clear HNSW index
+            hnsw_service = self._get_hnsw_service()
+            if hnsw_service:
+                # Reset the HNSW index
+                hnsw_service.reset_index()
+                print("   ✅ HNSW index reset")
+            
+            # Clear embeddings from graph nodes
+            all_nodes = []
+            for node_type in [NodeType.SEMANTIC, NodeType.ENTITY, NodeType.RELATIONSHIP, 
+                             NodeType.ATTRIBUTE, NodeType.HIGH_LEVEL, NodeType.OVERVIEW]:
+                nodes = self.graph_manager.get_nodes_by_type(node_type)
+                all_nodes.extend(nodes)
+            
+            cleared_count = 0
+            for node in all_nodes:
+                if hasattr(node, 'embeddings') and node.embeddings is not None:
+                    node.embeddings = None
+                    self.graph_manager.update_node(node)
+                    cleared_count += 1
+            
+            print(f"   ✅ Cleared embeddings from {cleared_count} nodes")
+            
+            # Clean up checkpoint
+            self._cleanup_embedding_checkpoint()
+            
+            return True
+            
+        except Exception as e:
+            print(f"   ❌ Failed to reset embeddings: {e}")
+            logger.error(f"Failed to reset embeddings and index: {e}")
+            return False

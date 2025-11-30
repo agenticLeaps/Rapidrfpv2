@@ -77,6 +77,32 @@ class HNSWService:
         
         logger.info(f"HNSW service initialized: dim={dimension}, space={space}")
     
+    def reset_index(self) -> None:
+        """Reset the HNSW index to empty state."""
+        try:
+            # Reinitialize the index
+            self.index = hnswlib.Index(space=self.space, dim=self.dimension)
+            self.index.init_index(
+                max_elements=self.max_elements,
+                ef_construction=self.ef_construction,
+                M=self.m
+            )
+            
+            # Clear all mappings
+            self.id_mapping.clear()
+            self.reverse_mapping.clear()
+            self.node_metadata.clear()
+            
+            # Reset state
+            self.current_count = 0
+            self.is_built = False
+            
+            logger.info("HNSW index reset successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to reset HNSW index: {e}")
+            raise
+    
     def add_node_embedding(self, 
                           node_id: str, 
                           embedding: np.ndarray, 
@@ -94,11 +120,12 @@ class HNSWService:
         """
         try:
             if node_id in self.reverse_mapping:
-                logger.warning(f"Node {node_id} already exists in index")
-                return False
+                # Node already exists - this is OK during checkpoint/resume
+                logger.debug(f"HNSW: Node {node_id} already exists in index (skipping)")
+                return True  # Return True since the node is already indexed
             
             if self.current_count >= self.max_elements:
-                logger.error(f"HNSW index is full (max: {self.max_elements})")
+                print(f"   ❌ HNSW: Index is full (current: {self.current_count}, max: {self.max_elements})")
                 return False
             
             # Validate embedding
@@ -106,6 +133,7 @@ class HNSWService:
                 embedding = np.array(embedding, dtype=np.float32)
             
             if embedding.shape[0] != self.dimension:
+                print(f"   ❌ HNSW: Dimension mismatch - got {embedding.shape[0]}, expected {self.dimension}")
                 raise ValueError(f"Embedding dimension {embedding.shape[0]} != expected {self.dimension}")
             
             # Add to index
@@ -123,6 +151,7 @@ class HNSWService:
             return True
             
         except Exception as e:
+            print(f"   ❌ HNSW: Error adding node {node_id}: {type(e).__name__}: {e}")
             logger.error(f"Error adding node {node_id} to HNSW index: {e}")
             return False
     

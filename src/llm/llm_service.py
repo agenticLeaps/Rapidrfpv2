@@ -69,13 +69,30 @@ class LLMService:
                 
             else:
                 # Initialize OpenAI for LLM (both sync and async)
-                self.openai_client = OpenAI(api_key=Config.OPENAI_API_KEY)
-                self.async_openai_client = AsyncOpenAI(api_key=Config.OPENAI_API_KEY)
+                self.openai_client = OpenAI(
+                    api_key=Config.OPENAI_API_KEY,
+                    timeout=60.0
+                )
+                self.async_openai_client = AsyncOpenAI(
+                    api_key=Config.OPENAI_API_KEY,
+                    timeout=60.0
+                )
                 print("✅ OpenAI clients initialized")
             
-            # Initialize HF Gradio client for embeddings (always needed)
-            self.embedding_client = Client(Config.QWEN_EMBEDDING_ENDPOINT)
-            print("✅ HuggingFace embedding client initialized")
+            # Always initialize OpenAI client for embeddings (needed regardless of model_type)
+            if self.openai_client is None:
+                self.openai_client = OpenAI(
+                    api_key=Config.OPENAI_API_KEY,
+                    timeout=60.0
+                )
+                print("✅ OpenAI client initialized for embeddings")
+            
+            # Initialize HF Gradio client for embeddings (fallback)
+            try:
+                self.embedding_client = Client(Config.QWEN_EMBEDDING_ENDPOINT)
+                print("✅ HuggingFace embedding client initialized")
+            except Exception as e:
+                logger.warning(f"HuggingFace embedding client initialization failed: {e}")
                 
         except Exception as e:
             logger.error(f"Failed to initialize clients: {e}")
@@ -513,9 +530,9 @@ Title:"""
                 
                 if batch_embeddings and len(batch_embeddings) == len(batch):
                     all_embeddings.extend(batch_embeddings)
-                    print(f"   ✓ Batch {current_batch_num}/{total_batches} completed ({len(batch_embeddings)} embeddings)")
+                    # Removed duplicate logging - main pipeline handles this
                 else:
-                    logger.warning(f"Batch {current_batch_num} failed, using fallback embeddings")
+                    logger.warning(f"LLM Service: Batch {current_batch_num} failed, using fallback embeddings")
                     # Add zero embeddings as fallback (1536 dimensions for OpenAI)
                     all_embeddings.extend([[0.0] * 1536 for _ in batch])
                 
@@ -543,14 +560,25 @@ Title:"""
         import openai
         from requests.exceptions import RequestException, Timeout, ConnectionError
         
+        # Ensure OpenAI client is initialized for embeddings
+        if self.openai_client is None:
+            try:
+                self.openai_client = OpenAI(
+                    api_key=Config.OPENAI_API_KEY,
+                    timeout=60.0  # Set timeout on client, not API call
+                )
+                print(f"   🔧 Initialized OpenAI client for embeddings")
+            except Exception as e:
+                logger.error(f"Failed to initialize OpenAI client: {e}")
+                return None
+        
         for attempt in range(Config.MAX_RETRIES):
             try:
-                # Use OpenAI embeddings API with timeout
+                # Use OpenAI embeddings API (timeout is set on client)
                 response = self.openai_client.embeddings.create(
                     model="text-embedding-3-small",
                     input=batch,
-                    encoding_format="float",
-                    timeout=60  # 60 second timeout
+                    encoding_format="float"
                 )
                 
                 # Extract embeddings from response
@@ -587,9 +615,28 @@ Title:"""
                 # Don't retry bad requests
                 break
                 
+            except AttributeError as e:
+                logger.error(f"Batch {batch_num}: AttributeError - likely OpenAI client issue: {e}")
+                print(f"   🔧 Batch {batch_num}: Client issue on attempt {attempt + 1}, reinitializing...")
+                # Try to reinitialize the client
+                try:
+                    self.openai_client = OpenAI(
+                        api_key=Config.OPENAI_API_KEY,
+                        timeout=60.0
+                    )
+                    print(f"   ✅ OpenAI client reinitialized")
+                except Exception as reinit_error:
+                    logger.error(f"Failed to reinitialize OpenAI client: {reinit_error}")
+                    break
+                    
+                if attempt < Config.MAX_RETRIES - 1:
+                    wait_time = Config.RETRY_DELAY_BASE * (attempt + 1)
+                    time.sleep(wait_time)
+                continue
+                
             except Exception as e:
                 wait_time = Config.RETRY_DELAY_BASE * (attempt + 1)
-                print(f"   ❌ Batch {batch_num}: Unexpected error on attempt {attempt + 1}: {type(e).__name__}")
+                print(f"   ❌ Batch {batch_num}: Unexpected error on attempt {attempt + 1}: {type(e).__name__}: {str(e)}")
                 if attempt < Config.MAX_RETRIES - 1:
                     time.sleep(wait_time)
                 continue

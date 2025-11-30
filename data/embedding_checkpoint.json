@@ -1,0 +1,8 @@
+{
+  "last_completed_batch": 40,
+  "embeddings_generated": 8424,
+  "hnsw_count": 8065,
+  "timestamp": 1764505991.3171961,
+  "environment": "local",
+  "completed": false
+}
