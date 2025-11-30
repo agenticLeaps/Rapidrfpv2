@@ -109,8 +109,18 @@ class AdvancedSearchSystem:
         # Step 1: HNSW semantic similarity search
         hnsw_results = self._hnsw_search(query, k_hnsw)
         
-        # Step 2: Query decomposition and exact entity matching
-        accurate_results = self._exact_entity_search(query)
+        # Step 2: AGENTIC QUERY UNDERSTANDING & EXPANSION
+        # First understand the query intent and expand semantically
+        expanded_queries = self._agentic_query_expansion(query)
+        decomposed_queries = self._decompose_query(query)
+        
+        # Combine all query variations for comprehensive search
+        all_search_queries = [query] + expanded_queries + decomposed_queries
+        accurate_results = []
+        
+        for search_query in all_search_queries:
+            sub_results = self._exact_entity_search(search_query)
+            accurate_results.extend(sub_results)
         
         # Step 3: Personalized PageRank
         ppr_results = self._personalized_pagerank_search(
@@ -128,7 +138,13 @@ class AdvancedSearchSystem:
             high_level_limit=high_level_nodes_limit
         )
         
-        logger.info(f"Search completed: {len(final_result.final_nodes)} final nodes")
+        # Step 5: Enhanced relationship expansion for cross-chunk connections
+        final_result.final_nodes = self._expand_with_cross_chunk_relationships(final_result.final_nodes)
+        
+        # Step 6: NodeRAG-style attribute expansion for richer context
+        final_result.final_nodes = self._expand_with_attributes(final_result.final_nodes)
+        
+        logger.info(f"Search completed: {len(final_result.final_nodes)} final nodes (with attributes)")
         return final_result
     
     def _hnsw_search(self, query: str, k: int) -> List[SearchResult]:
@@ -160,12 +176,14 @@ class AdvancedSearchSystem:
         """Perform exact entity matching using query decomposition."""
         try:
             # Decompose query into entities
-            decomposed_entities = self.llm_service.decompose_query(query)
+            decomposed_entities = self._decompose_query(query)
             
             matched_entities = []
             
-            # Search for exact matches
-            for entity in decomposed_entities:
+            # Search for exact matches with enhanced coverage
+            search_terms = decomposed_entities + [query.lower().strip()]  # Include original query
+            
+            for entity in search_terms:
                 entity_lower = entity.lower().strip()
                 
                 # Direct lookup
@@ -173,10 +191,16 @@ class AdvancedSearchSystem:
                     matched_entities.extend(self.entity_lookup[entity_lower])
                     continue
                 
-                # Fuzzy word-based matching
+                # Partial matching for company names like "Andor" matching "Andor Health"
+                for entity_text, node_ids in self.entity_lookup.items():
+                    if (entity_lower in entity_text or 
+                        entity_text in entity_lower or
+                        any(word in entity_text for word in entity_lower.split() if len(word) > 3)):
+                        matched_entities.extend(node_ids)
+                
+                # Fuzzy word-based matching for phrases
                 entity_words = entity_lower.split()
                 if len(entity_words) > 1:
-                    # Create regex pattern for phrase matching
                     pattern = re.compile(r'\b' + r'\s+'.join(map(re.escape, entity_words)) + r'\b')
                     
                     for entity_text, node_ids in self.entity_lookup.items():
@@ -381,7 +405,7 @@ class AdvancedSearchSystem:
                 query=query
             )
             
-            response = self.llm_service._chat_completion(answer_prompt, temperature=0.7)
+            response = self.llm_service._chat_completion(answer_prompt, temperature=0.1)  # Low temperature for deterministic responses
             
             return {
                 'query': query,
@@ -414,3 +438,210 @@ class AdvancedSearchSystem:
             'entity_lookup_size': len(self.entity_lookup),
             'graph_stats': self.graph_manager.get_stats()
         }
+    
+    def _decompose_query(self, query: str) -> List[str]:
+        """
+        NodeRAG-style query decomposition into searchable components.
+        Breaks complex queries into entities and sub-queries.
+        """
+        try:
+            # Use the LLM to decompose query into searchable elements
+            decomposition_prompt = self.llm_service.prompt_manager.query_decomposition.format(
+                query=query
+            )
+            
+            response = self.llm_service._chat_completion(decomposition_prompt, temperature=0.3)
+            
+            # Parse JSON response
+            import json
+            decomposition_data = json.loads(response)
+            elements = decomposition_data.get('elements', [])
+            
+            # Filter and clean elements
+            cleaned_elements = []
+            for element in elements:
+                element = element.strip()
+                if len(element) > 2 and element.lower() not in ['the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for']:
+                    cleaned_elements.append(element)
+            
+            logger.info(f"Query decomposition: '{query}' → {cleaned_elements}")
+            return cleaned_elements[:5]  # Limit to 5 elements
+            
+        except Exception as e:
+            logger.warning(f"Query decomposition failed: {e}")
+            # Fallback: simple keyword extraction
+            words = query.lower().split()
+            keywords = [w for w in words if len(w) > 3 and w.isalpha()]
+            return keywords[:3]
+    
+    def _expand_with_attributes(self, node_ids: List[str]) -> List[str]:
+        """
+        NodeRAG-style attribute expansion.
+        Automatically adds related attribute nodes for richer context.
+        """
+        expanded_nodes = set(node_ids)
+        
+        for node_id in node_ids:
+            try:
+                node = self.graph_manager.get_node(node_id)
+                if not node:
+                    continue
+                
+                # Find connected attribute nodes
+                if hasattr(self.graph_manager.graph, 'neighbors'):
+                    neighbors = list(self.graph_manager.graph.neighbors(node_id))
+                    
+                    for neighbor_id in neighbors:
+                        neighbor = self.graph_manager.get_node(neighbor_id)
+                        if neighbor and neighbor.type == NodeType.ATTRIBUTE:
+                            expanded_nodes.add(neighbor_id)
+                            
+                            # Limit attribute expansion to prevent explosion
+                            if len(expanded_nodes) > len(node_ids) * 2:
+                                break
+                                
+            except Exception as e:
+                logger.warning(f"Attribute expansion failed for node {node_id}: {e}")
+                continue
+        
+        expanded_list = list(expanded_nodes)
+        logger.info(f"Expanded {len(node_ids)} nodes to {len(expanded_list)} with attributes")
+        return expanded_list
+    
+    def _agentic_query_expansion(self, query: str) -> List[str]:
+        """
+        Advanced agentic query expansion - understands intent and generates semantic variations.
+        This is the core of true NodeRAG-style intelligent retrieval.
+        """
+        try:
+            # Agentic prompt that understands query intent and semantics
+            expansion_prompt = f"""
+You are an intelligent query expansion system. Given a user question, generate 5-8 semantically equivalent variations that would help find the same information.
+
+Rules:
+1. Understand the INTENT behind the question
+2. Generate synonyms and alternative phrasings  
+3. Include both formal and informal variations
+4. Handle entity name variations (e.g., "Andor" → "Andor Health")
+5. Convert temporal expressions (e.g., "born" → "founded", "established", "created")
+
+Original Query: "{query}"
+
+Generate query variations as a JSON array:
+{{"variations": ["variation1", "variation2", ...]}}
+
+Focus on:
+- Synonym replacement
+- Entity variations  
+- Temporal/action alternatives
+- Formal vs informal phrasing
+"""
+
+            response = self.llm_service._chat_completion(expansion_prompt, temperature=0.3)
+            
+            import json
+            expansion_data = json.loads(response)
+            variations = expansion_data.get('variations', [])
+            
+            # Clean and filter variations
+            clean_variations = []
+            for variation in variations:
+                variation = variation.strip().lower()
+                if variation != query.lower() and len(variation) > 5:
+                    clean_variations.append(variation)
+            
+            logger.info(f"Query expansion: '{query}' → {len(clean_variations)} variations")
+            return clean_variations[:6]  # Limit to best 6 variations
+            
+        except Exception as e:
+            logger.warning(f"Agentic query expansion failed: {e}")
+            # Fallback: basic synonym expansion
+            return self._basic_query_expansion(query)
+    
+    def _basic_query_expansion(self, query: str) -> List[str]:
+        """Fallback query expansion with predefined synonyms"""
+        query_lower = query.lower()
+        expansions = []
+        
+        # Company/organization founding synonyms
+        if any(word in query_lower for word in ['born', 'founded', 'established', 'created', 'started']):
+            entity = self._extract_entity_from_query(query)
+            if entity:
+                expansions.extend([
+                    f"when was {entity} founded",
+                    f"when did {entity} start", 
+                    f"{entity} establishment date",
+                    f"{entity} creation timeline",
+                    f"founding of {entity}"
+                ])
+        
+        # Age/time related queries
+        if any(word in query_lower for word in ['age', 'old', 'years']):
+            entity = self._extract_entity_from_query(query) 
+            if entity:
+                expansions.extend([
+                    f"how long has {entity} existed",
+                    f"{entity} company age",
+                    f"years since {entity} founded"
+                ])
+        
+        return expansions[:4]
+    
+    def _expand_with_cross_chunk_relationships(self, node_ids: List[str]) -> List[str]:
+        """
+        Enhanced expansion that includes cross-chunk relationship nodes for better context.
+        This addresses the parallel processing quality issue by surfacing relationships
+        that span multiple document chunks.
+        """
+        expanded_nodes = set(node_ids)
+        
+        for node_id in node_ids:
+            try:
+                node = self.graph_manager.get_node(node_id)
+                if not node:
+                    continue
+                
+                # Look for cross-chunk relationships involving this node
+                if hasattr(self.graph_manager.graph, 'neighbors'):
+                    neighbors = list(self.graph_manager.graph.neighbors(node_id))
+                    
+                    for neighbor_id in neighbors:
+                        neighbor = self.graph_manager.get_node(neighbor_id)
+                        if (neighbor and neighbor.type == NodeType.RELATIONSHIP and 
+                            neighbor.metadata.get('cross_chunk', False)):
+                            
+                            # Add the cross-chunk relationship node
+                            expanded_nodes.add(neighbor_id)
+                            
+                            # Add the other entities involved in this relationship
+                            relationship_neighbors = list(self.graph_manager.graph.neighbors(neighbor_id))
+                            for rel_neighbor_id in relationship_neighbors:
+                                rel_neighbor = self.graph_manager.get_node(rel_neighbor_id)
+                                if (rel_neighbor and rel_neighbor.type == NodeType.ENTITY and 
+                                    rel_neighbor.id != node_id):
+                                    expanded_nodes.add(rel_neighbor_id)
+                            
+                            # Limit expansion to prevent explosion
+                            if len(expanded_nodes) > len(node_ids) * 3:
+                                break
+                                
+            except Exception as e:
+                logger.warning(f"Cross-chunk relationship expansion failed for node {node_id}: {e}")
+                continue
+        
+        expanded_list = list(expanded_nodes)
+        added_count = len(expanded_list) - len(node_ids)
+        if added_count > 0:
+            logger.info(f"Added {added_count} cross-chunk relationship nodes for richer context")
+        return expanded_list
+    
+    def _extract_entity_from_query(self, query: str) -> str:
+        """Extract main entity from query for expansion"""
+        query_words = query.lower().split()
+        
+        # Common entity patterns
+        for word in query_words:
+            if word not in ['what', 'when', 'where', 'how', 'is', 'the', 'of', 'did', 'was', 'age', 'born', 'founded']:
+                return word.title()
+        
+        return ""

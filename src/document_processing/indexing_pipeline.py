@@ -5,6 +5,8 @@ from typing import List, Dict, Any, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import asyncio
 import time
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
 
 from ..graph.graph_manager import GraphManager
 from ..graph.node_types import Node, Edge, NodeType
@@ -716,113 +718,45 @@ class IndexingPipeline:
             }
     
     async def _async_phase_1_decomposition(self, processed_doc: ProcessedDocument) -> Dict[str, Any]:
-        """Async Phase I with optimized batch processing."""
+        """
+        RESTRUCTURED: Two-Phase Approach for Better Graph Quality
+        Phase 1a: Parallel LLM Extraction (collect all results)
+        Phase 1b: Unified Graph Building (build graph from all results)
+        """
         total_chunks = len(processed_doc.chunks)
-        successful_chunks = 0
-        failed_chunks = 0
-        print(f"⚡ GEMINI 1.5 FLASH: Processing {total_chunks} chunks with 8 workers (rate-limited)")
-        print(f"🎯 TARGET: Avoid quota limits while testing performance vs GPT-5-nano")
+        print(f"🚀 NEW TWO-PHASE APPROACH: {total_chunks} chunks")
+        print(f"📋 Phase 1a: Parallel LLM Extraction (collect all results)")
+        print(f"🔗 Phase 1b: Unified Graph Building (build from all results)")
         
         try:
-            # Process ALL chunks in parallel - no batching
-            batch_size = total_chunks  # Process all chunks in one batch
-            semaphore = asyncio.Semaphore(total_chunks)  # Allow all chunks to run concurrently
+            # PHASE 1a: Parallel LLM Extraction Only (no graph building)
+            all_extraction_results = await self._parallel_extract_all_chunks(processed_doc.chunks)
             
-            async def process_chunk_batch(chunks_batch, batch_num):
-                async with semaphore:
-                    try:
-                        # Process chunks in parallel using ThreadPoolExecutor
-                        import concurrent.futures
-                        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-                            # Submit all extraction tasks
-                            future_to_chunk = {}
-                            for chunk in chunks_batch:
-                                future = executor.submit(self.llm_service.extract_all_from_chunk, chunk.content)
-                                future_to_chunk[future] = chunk
-                            
-                            results = []
-                            for future in concurrent.futures.as_completed(future_to_chunk):
-                                try:
-                                    result = future.result()
-                                    # Convert to EnhancedExtractionResult format
-                                    enhanced_result = EnhancedExtractionResult(
-                                        semantic_units=[{"semantic_unit": unit, "entities": result.entities, "relationships": [str(rel) for rel in result.relationships]} for unit in result.semantic_units],
-                                        entities=result.entities,
-                                        relationships=result.relationships,
-                                        success=result.success,
-                                        error_message=result.error_message
-                                    )
-                                    results.append(enhanced_result)
-                                except Exception as chunk_e:
-                                    print(f"   ❌ Chunk processing failed: {chunk_e}")
-                                    # Add failed result
-                                    results.append(EnhancedExtractionResult(
-                                        semantic_units=[], entities=[], relationships=[], 
-                                        success=False, error_message=str(chunk_e)
-                                    ))
-                        
-                        batch_success = 0
-                        batch_failed = 0
-                        
-                        # Process results and create nodes
-                        print(f"   📝 Creating nodes for batch {batch_num}...")
-                        for i, (chunk, result) in enumerate(zip(chunks_batch, results)):
-                            print(f"   🔍 Batch {batch_num}, Chunk {i+1}:")
-                            print(f"      Success: {result.success}")
-                            if result.success:
-                                print(f"      Entities ({len(result.entities)}): {result.entities[:3]}{'...' if len(result.entities) > 3 else ''}")
-                                print(f"      Semantic Units ({len(result.semantic_units)}): {[str(su)[:50] + '...' if len(str(su)) > 50 else str(su) for su in result.semantic_units[:2]]}")
-                                print(f"      Relationships ({len(result.relationships)}): {result.relationships[:2]}")
-                                
-                                success = self._create_nodes_from_result(chunk, result, f"{batch_num}_{i}")
-                                if success:
-                                    batch_success += 1
-                                    print(f"      ✅ Nodes created successfully")
-                                else:
-                                    batch_failed += 1
-                                    print(f"      ❌ Node creation failed")
-                            else:
-                                print(f"      ❌ LLM extraction failed: {result.error_message}")
-                                batch_failed += 1
-                        
-                        print(f"   ✓ Batch {batch_num}/X completed: {batch_success} successful, {batch_failed} failed")
-                        return batch_success, batch_failed
-                        
-                    except Exception as e:
-                        logger.error(f"Error in batch {batch_num}: {e}")
-                        return 0, len(chunks_batch)
+            successful_extractions = sum(1 for result in all_extraction_results if result['success'])
+            failed_extractions = len(all_extraction_results) - successful_extractions
             
-            # Create batch tasks
-            tasks = []
-            for i in range(0, len(processed_doc.chunks), batch_size):
-                batch = processed_doc.chunks[i:i+batch_size]
-                batch_num = i // batch_size + 1
-                tasks.append(process_chunk_batch(batch, batch_num))
+            print(f"✅ Phase 1a Complete: {successful_extractions}/{total_chunks} successful extractions")
             
-            # Execute batches concurrently
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+            # PHASE 1b: Unified Graph Building
+            print(f"🔗 Phase 1b: Building unified graph from all extracted data...")
+            graph_build_result = await self._build_unified_graph_from_extractions(all_extraction_results, processed_doc.chunks)
             
-            # Aggregate results
-            for result in results:
-                if isinstance(result, tuple):
-                    batch_success, batch_failed = result
-                    successful_chunks += batch_success
-                    failed_chunks += batch_failed
-                else:
-                    logger.error(f"Batch processing error: {result}")
-                    failed_chunks += batch_size
+            print(f"✅ Phase 1b Complete: {graph_build_result['total_nodes']} nodes, {graph_build_result['total_edges']} edges")
+            print(f"   📊 Entity consolidation: {graph_build_result['consolidated_entities']} duplicates merged")
+            print(f"   🔗 Cross-chunk relationships: {graph_build_result['cross_chunk_relationships']} detected")
             
-            logger.info(f"Async Phase I completed: {successful_chunks} successful, {failed_chunks} failed")
+            logger.info(f"Two-phase async decomposition completed: {successful_extractions} successful, {failed_extractions} failed")
             
             return {
                 'success': True,
-                'chunks_processed': successful_chunks,
-                'chunks_failed': failed_chunks,
-                'processing_method': 'async_batch'
+                'chunks_processed': successful_extractions,
+                'chunks_failed': failed_extractions,
+                'graph_quality': graph_build_result,
+                'processing_method': 'two_phase_unified'
             }
             
         except Exception as e:
-            logger.error(f"Error in Async Phase I: {e}")
+            logger.error(f"Error in Two-Phase Async Decomposition: {e}")
             return {'success': False, 'error': str(e)}
     
     async def _async_phase_2_augmentation(self) -> Dict[str, Any]:
@@ -1137,6 +1071,468 @@ class IndexingPipeline:
             print(f"      ❌ Community {community_id} processing failed: {e}")
             return False, False, debug_info
     
+    async def _parallel_extract_all_chunks(self, chunks: List[DocumentChunk]) -> List[Dict[str, Any]]:
+        """
+        Phase 1a: Pure parallel LLM extraction without any graph building.
+        Collects all extraction results for unified processing later.
+        """
+        total_chunks = len(chunks)
+        print(f"   ⚡ Extracting from {total_chunks} chunks in parallel (8 workers)...")
+        
+        try:
+            # Process chunks in parallel using ThreadPoolExecutor
+            semaphore = asyncio.Semaphore(8)  # Limit to 8 concurrent workers
+            
+            async def extract_single_chunk(chunk: DocumentChunk, chunk_index: int) -> Dict[str, Any]:
+                async with semaphore:
+                    try:
+                        print(f"   🔄 Worker processing chunk {chunk_index+1}/{total_chunks}...")
+                        
+                        # Pure LLM extraction - no graph operations
+                        loop = asyncio.get_event_loop()
+                        extraction_result = await loop.run_in_executor(
+                            None, 
+                            self.llm_service.extract_all_from_chunk, 
+                            chunk.content
+                        )
+                        
+                        if extraction_result.success:
+                            print(f"   ✅ Chunk {chunk_index+1}: {len(extraction_result.entities)} entities, {len(extraction_result.relationships)} relationships")
+                            return {
+                                'success': True,
+                                'chunk': chunk,
+                                'chunk_index': chunk_index,
+                                'semantic_units': extraction_result.semantic_units,
+                                'entities': extraction_result.entities,
+                                'relationships': extraction_result.relationships
+                            }
+                        else:
+                            print(f"   ❌ Chunk {chunk_index+1}: LLM extraction failed - {extraction_result.error_message}")
+                            return {
+                                'success': False,
+                                'chunk': chunk,
+                                'chunk_index': chunk_index,
+                                'error': extraction_result.error_message
+                            }
+                            
+                    except Exception as e:
+                        print(f"   ❌ Chunk {chunk_index+1}: Exception - {e}")
+                        return {
+                            'success': False,
+                            'chunk': chunk,
+                            'chunk_index': chunk_index,
+                            'error': str(e)
+                        }
+            
+            # Create all extraction tasks
+            extraction_tasks = [
+                extract_single_chunk(chunk, i) for i, chunk in enumerate(chunks)
+            ]
+            
+            # Execute all extractions in parallel
+            all_results = await asyncio.gather(*extraction_tasks, return_exceptions=True)
+            
+            # Handle any exceptions
+            processed_results = []
+            for result in all_results:
+                if isinstance(result, Exception):
+                    logger.error(f"Extraction task failed: {result}")
+                    processed_results.append({
+                        'success': False,
+                        'error': str(result)
+                    })
+                else:
+                    processed_results.append(result)
+            
+            successful_count = sum(1 for r in processed_results if r.get('success', False))
+            print(f"   📊 Extraction Summary: {successful_count}/{total_chunks} successful")
+            
+            return processed_results
+            
+        except Exception as e:
+            logger.error(f"Error in parallel extraction: {e}")
+            raise
+    
+    async def _build_unified_graph_from_extractions(self, extraction_results: List[Dict[str, Any]], chunks: List[DocumentChunk] = None) -> Dict[str, Any]:
+        """
+        Phase 1b: Build unified graph from all extraction results.
+        This fixes the fragmentation issue by processing all data together.
+        """
+        print(f"   🏗️  Building unified graph from {len(extraction_results)} extraction results...")
+        
+        try:
+            # Collect all entities and relationships across chunks
+            all_entities = {}  # entity_content -> list of (chunk_index, entity_data)
+            all_relationships = []
+            all_semantic_units = []
+            text_nodes_created = 0
+            
+            # Process successful extractions
+            for result in extraction_results:
+                if not result.get('success', False):
+                    continue
+                
+                chunk = result['chunk']
+                chunk_index = result['chunk_index']
+                chunk_id = str(chunk_index)
+                
+                # 1. Create Text Node (T) for each chunk
+                text_node = Node(
+                    id=f"T_{chunk_id}",
+                    type=NodeType.TEXT,
+                    content=chunk.content,
+                    metadata={
+                        **chunk.metadata,
+                        'node_type': 'text',
+                        'chunk_id': chunk_id,
+                        'chunk_index': chunk_index
+                    }
+                )
+                self.graph_manager.add_node(text_node)
+                text_nodes_created += 1
+                
+                # 2. Collect Semantic Units
+                for i, semantic_unit in enumerate(result.get('semantic_units', [])):
+                    all_semantic_units.append({
+                        'content': semantic_unit,
+                        'chunk_id': chunk_id,
+                        'chunk_index': chunk_index,
+                        'semantic_index': i,
+                        'text_node_id': text_node.id
+                    })
+                
+                # 3. Collect Entities (with deduplication tracking)
+                for entity_content in result.get('entities', []):
+                    entity_key = entity_content.lower().strip()
+                    if entity_key not in all_entities:
+                        all_entities[entity_key] = []
+                    
+                    all_entities[entity_key].append({
+                        'original_content': entity_content,
+                        'chunk_id': chunk_id,
+                        'chunk_index': chunk_index,
+                        'text_node_id': text_node.id
+                    })
+                
+                # 4. Collect Relationships
+                for relationship in result.get('relationships', []):
+                    if isinstance(relationship, tuple) and len(relationship) == 3:
+                        entity1, relation, entity2 = relationship
+                        all_relationships.append({
+                            'entity1': entity1,
+                            'relation': relation, 
+                            'entity2': entity2,
+                            'chunk_id': chunk_id,
+                            'chunk_index': chunk_index,
+                            'text_node_id': text_node.id
+                        })
+            
+            print(f"   📊 Collected: {len(all_semantic_units)} semantic units, {len(all_entities)} unique entities, {len(all_relationships)} relationships")
+            
+            # 5. Create Semantic Unit Nodes
+            semantic_nodes_created = 0
+            for semantic_data in all_semantic_units:
+                semantic_id = f"S_{semantic_data['chunk_id']}_{semantic_data['semantic_index']}"
+                semantic_node = Node(
+                    id=semantic_id,
+                    type=NodeType.SEMANTIC,
+                    content=semantic_data['content'],
+                    metadata={
+                        'chunk_id': semantic_data['chunk_id'],
+                        'chunk_index': semantic_data['chunk_index'],
+                        'semantic_index': semantic_data['semantic_index'],
+                        'node_type': 'semantic'
+                    }
+                )
+                
+                self.graph_manager.add_node(semantic_node)
+                semantic_nodes_created += 1
+                
+                # Link to text node
+                self.graph_manager.add_edge(Edge(
+                    source=semantic_data['text_node_id'],
+                    target=semantic_id,
+                    relationship_type="contains_semantic_unit"
+                ))
+            
+            # 6. Create Consolidated Entity Nodes (avoiding duplicates)
+            entity_mapping = {}  # original_entity_content -> consolidated_entity_id
+            consolidated_entities = 0
+            
+            for entity_key, entity_instances in all_entities.items():
+                # Use the most complete version of the entity name
+                best_entity_name = max(entity_instances, key=lambda x: len(x['original_content']))['original_content']
+                
+                # Create single entity node for all instances
+                entity_id = f"N_{entity_key.replace(' ', '_')}"
+                entity_node = Node(
+                    id=entity_id,
+                    type=NodeType.ENTITY,
+                    content=best_entity_name,
+                    metadata={
+                        'mentions': [inst['chunk_id'] for inst in entity_instances],
+                        'mention_count': len(entity_instances),
+                        'variants': list(set(inst['original_content'] for inst in entity_instances)),
+                        'node_type': 'entity'
+                    }
+                )
+                
+                self.graph_manager.add_node(entity_node)
+                
+                # Map all variations to this consolidated entity
+                for instance in entity_instances:
+                    entity_mapping[instance['original_content']] = entity_id
+                    
+                    # Link to text nodes where it appears
+                    self.graph_manager.add_edge(Edge(
+                        source=instance['text_node_id'],
+                        target=entity_id,
+                        relationship_type="mentions_entity"
+                    ))
+                
+                if len(entity_instances) > 1:
+                    consolidated_entities += 1
+            
+            # 7. Create Relationship Nodes (using consolidated entities)
+            relationships_created = 0
+            cross_chunk_relationships = 0
+            
+            for rel_data in all_relationships:
+                entity1_id = entity_mapping.get(rel_data['entity1'])
+                entity2_id = entity_mapping.get(rel_data['entity2'])
+                
+                if entity1_id and entity2_id and entity1_id != entity2_id:
+                    relationship_id = f"R_{rel_data['chunk_id']}_{relationships_created}"
+                    relationship_node = Node(
+                        id=relationship_id,
+                        type=NodeType.RELATIONSHIP,
+                        content=f"{rel_data['entity1']} {rel_data['relation']} {rel_data['entity2']}",
+                        metadata={
+                            'entity1': rel_data['entity1'],
+                            'relation': rel_data['relation'],
+                            'entity2': rel_data['entity2'],
+                            'chunk_id': rel_data['chunk_id'],
+                            'chunk_index': rel_data['chunk_index'],
+                            'node_type': 'relationship'
+                        }
+                    )
+                    
+                    self.graph_manager.add_node(relationship_node)
+                    relationships_created += 1
+                    
+                    # Create relationship edges
+                    self.graph_manager.add_edge(Edge(
+                        source=relationship_id,
+                        target=entity1_id,
+                        relationship_type="involves_entity"
+                    ))
+                    self.graph_manager.add_edge(Edge(
+                        source=relationship_id,
+                        target=entity2_id,
+                        relationship_type="involves_entity"
+                    ))
+                    self.graph_manager.add_edge(Edge(
+                        source=entity1_id,
+                        target=entity2_id,
+                        relationship_type=rel_data['relation'],
+                        metadata={'relationship_node': relationship_id}
+                    ))
+                    
+                    # Cross-chunk relationship detection
+                    entity1_mentions = all_entities.get(rel_data['entity1'].lower().strip(), [])
+                    entity2_mentions = all_entities.get(rel_data['entity2'].lower().strip(), [])
+                    
+                    if (len(entity1_mentions) > 1 or len(entity2_mentions) > 1):
+                        cross_chunk_relationships += 1
+            
+            total_nodes = text_nodes_created + semantic_nodes_created + len(all_entities) + relationships_created
+            total_edges = semantic_nodes_created + len(entity_mapping) + (relationships_created * 3)  # Approximate edge count
+            
+            return {
+                'total_nodes': total_nodes,
+                'total_edges': total_edges,
+                'text_nodes': text_nodes_created,
+                'semantic_nodes': semantic_nodes_created,
+                'entity_nodes': len(all_entities),
+                'relationship_nodes': relationships_created,
+                'consolidated_entities': consolidated_entities,
+                'cross_chunk_relationships': cross_chunk_relationships
+            }
+            
+        except Exception as e:
+            logger.error(f"Error building unified graph: {e}")
+            raise
+    
+    async def _consolidate_entities_and_relationships(self) -> Dict[str, Any]:
+        """
+        Post-processing phase to consolidate entities and detect cross-chunk relationships.
+        Maintains parallel optimizations while improving graph quality.
+        """
+        try:
+            # 1. Entity Consolidation using semantic similarity
+            entity_nodes = self.graph_manager.get_nodes_by_type(NodeType.ENTITY)
+            consolidated_count = 0
+            cross_chunk_relationships = 0
+            
+            print(f"   🔍 Analyzing {len(entity_nodes)} entities for consolidation...")
+            
+            # Group similar entities using embedding similarity
+            if len(entity_nodes) > 1:
+                entity_contents = [node.content for node in entity_nodes]
+                
+                # Generate embeddings in batch for efficiency
+                embeddings = self.llm_service.get_embeddings(entity_contents, batch_size=32)
+                
+                # Find similar entities using cosine similarity
+                if len(embeddings) == len(entity_nodes):
+                    embeddings_matrix = np.array(embeddings)
+                    similarity_matrix = cosine_similarity(embeddings_matrix)
+                else:
+                    logger.warning(f"Embedding mismatch: {len(embeddings)} embeddings for {len(entity_nodes)} entities")
+                    return {'merged_entities': 0, 'cross_chunk_relationships': 0, 'error': 'embedding_mismatch'}
+                
+                # Consolidate entities with > 0.85 similarity
+                processed_entities = set()
+                for i, entity1 in enumerate(entity_nodes):
+                    if entity1.id in processed_entities:
+                        continue
+                        
+                    similar_entities = []
+                    for j, entity2 in enumerate(entity_nodes):
+                        if i != j and entity2.id not in processed_entities:
+                            similarity = similarity_matrix[i][j]
+                            if similarity > 0.85:  # High similarity threshold
+                                similar_entities.append(entity2)
+                    
+                    if similar_entities:
+                        # Merge entities
+                        primary_entity = entity1
+                        for similar_entity in similar_entities:
+                            self.graph_manager.merge_entities(primary_entity.id, similar_entity.id)
+                            processed_entities.add(similar_entity.id)
+                            consolidated_count += 1
+                        
+                        processed_entities.add(primary_entity.id)
+            
+            # 2. Cross-chunk relationship detection
+            print(f"   🔗 Detecting cross-chunk relationships...")
+            
+            # Get all entities that appear in multiple chunks
+            multi_chunk_entities = []
+            for entity in entity_nodes:
+                if entity.id not in [e.id for e in entity_nodes if e.id in processed_entities]:
+                    connected_chunks = set()
+                    for neighbor_id in self.graph_manager.graph.neighbors(entity.id):
+                        neighbor = self.graph_manager.get_node(neighbor_id)
+                        if neighbor and neighbor.type == NodeType.TEXT:
+                            chunk_id = neighbor.metadata.get('chunk_id')
+                            if chunk_id:
+                                connected_chunks.add(chunk_id)
+                    
+                    if len(connected_chunks) > 1:
+                        multi_chunk_entities.append((entity, connected_chunks))
+            
+            # Find potential relationships between multi-chunk entities
+            for i, (entity1, chunks1) in enumerate(multi_chunk_entities):
+                for j, (entity2, chunks2) in enumerate(multi_chunk_entities[i+1:], i+1):
+                    # Check if entities appear in overlapping or adjacent chunks
+                    chunk_overlap = chunks1.intersection(chunks2)
+                    if chunk_overlap:
+                        # Use LLM to determine if there's a meaningful relationship
+                        relationship = await self._detect_entity_relationship(entity1, entity2)
+                        if relationship:
+                            # Create cross-chunk relationship
+                            self._create_cross_chunk_relationship(entity1, entity2, relationship, chunk_overlap)
+                            cross_chunk_relationships += 1
+            
+            return {
+                'merged_entities': consolidated_count,
+                'cross_chunk_relationships': cross_chunk_relationships,
+                'multi_chunk_entities': len(multi_chunk_entities)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in entity consolidation: {e}")
+            return {'merged_entities': 0, 'cross_chunk_relationships': 0, 'error': str(e)}
+    
+    async def _detect_entity_relationship(self, entity1: Node, entity2: Node) -> Optional[str]:
+        """Use LLM to detect potential relationship between two entities."""
+        try:
+            # Get context from both entities
+            context1 = []
+            context2 = []
+            
+            for neighbor_id in self.graph_manager.graph.neighbors(entity1.id):
+                neighbor = self.graph_manager.get_node(neighbor_id)
+                if neighbor and neighbor.type == NodeType.TEXT:
+                    context1.append(neighbor.content[:500])  # Limit context
+            
+            for neighbor_id in self.graph_manager.graph.neighbors(entity2.id):
+                neighbor = self.graph_manager.get_node(neighbor_id)
+                if neighbor and neighbor.type == NodeType.TEXT:
+                    context2.append(neighbor.content[:500])
+            
+            # Use LLM to detect relationship
+            prompt = f"""
+Analyze if there is a meaningful relationship between these two entities based on their context.
+
+Entity 1: {entity1.content}
+Context 1: {' '.join(context1[:2])}
+
+Entity 2: {entity2.content}
+Context 2: {' '.join(context2[:2])}
+
+Return only the relationship type if one exists (e.g., "works for", "is located in", "partners with"), 
+or "NONE" if no clear relationship exists.
+
+Relationship:"""
+
+            relationship = self.llm_service._chat_completion(prompt, temperature=0.1)
+            relationship = relationship.strip()
+            
+            if relationship and relationship != "NONE" and len(relationship) < 100:
+                return relationship
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error detecting entity relationship: {e}")
+            return None
+    
+    def _create_cross_chunk_relationship(self, entity1: Node, entity2: Node, relationship: str, chunk_overlap: set):
+        """Create a cross-chunk relationship node."""
+        try:
+            relationship_id = f"R_cross_{entity1.id}_{entity2.id}"
+            relationship_node = Node(
+                id=relationship_id,
+                type=NodeType.RELATIONSHIP,
+                content=f"{entity1.content} {relationship} {entity2.content}",
+                metadata={
+                    'entity1': entity1.content,
+                    'relation': relationship,
+                    'entity2': entity2.content,
+                    'cross_chunk': True,
+                    'chunks': list(chunk_overlap),
+                    'node_type': 'relationship'
+                }
+            )
+            
+            self.graph_manager.add_node(relationship_node)
+            
+            # Create edges
+            self.graph_manager.add_edge(Edge(
+                source=relationship_id, target=entity1.id, relationship_type="involves_entity"
+            ))
+            self.graph_manager.add_edge(Edge(
+                source=relationship_id, target=entity2.id, relationship_type="involves_entity"
+            ))
+            self.graph_manager.add_edge(Edge(
+                source=entity1.id, target=entity2.id, relationship_type=relationship,
+                metadata={'relationship_node': relationship_id, 'cross_chunk': True}
+            ))
+            
+        except Exception as e:
+            logger.error(f"Error creating cross-chunk relationship: {e}")
+
     def get_indexing_stats(self) -> Dict[str, Any]:
         """Get statistics about the current indexed content."""
         return self.graph_manager.get_stats()

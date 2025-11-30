@@ -50,11 +50,11 @@ class NodeRAGService:
             self.pipeline = IndexingPipeline()
         return self.pipeline
     
-    def get_neo4j_storage(self):
-        """Lazy initialization of Neo4j storage"""
+    def get_neon_storage(self):
+        """Lazy initialization of Neon storage"""
         if self.neo4j_storage is None:
-            from src.storage.neo4j_storage import Neo4jStorage
-            self.neo4j_storage = Neo4jStorage()
+            from src.storage.neon_storage import NeonStorage
+            self.neo4j_storage = NeonStorage()
         return self.neo4j_storage
     
     def get_advanced_search(self):
@@ -295,8 +295,8 @@ def process_document_pipeline(org_id: str, file_id: str, user_id: str, chunks: L
             })
         
         # Store in NeonDB
-        print("💾 Storing data in Neo4j...")
-        storage = noderag_service.get_neo4j_storage()
+        print("💾 Storing data in NeonDB...")
+        storage = noderag_service.get_neon_storage()
         
         # Get token usage from pipeline's LLM service
         llm_stats = pipeline.llm_service.get_usage_stats()
@@ -481,7 +481,7 @@ def search_documents():
         if search_strategy in ["hybrid", "storage"] and len(search_results) < top_k:
             try:
                 logger.info("💾 Using Neo4j storage search")
-                storage = noderag_service.get_neo4j_storage()
+                storage = noderag_service.get_neon_storage()
                 
                 # Multi-strategy storage search
                 storage_results = []
@@ -527,12 +527,12 @@ def search_documents():
                             'user_id': result['user_id'],
                             'similarity_score': result['similarity_score'],
                             'metadata': result['metadata'],
-                            'source': 'neo4j_storage',
+                            'source': 'neon_storage',
                             'token_info': result.get('token_info', {})
                         })
                         existing_node_ids.add(result['node_id'])
                 
-                metadata["strategies_used"].append("neo4j_vector_search")
+                metadata["strategies_used"].append("neon_vector_search")
                 metadata["storage_results"] = len(storage_results)
                 logger.info(f"💾 Storage search found {len(storage_results)} results")
                 
@@ -580,7 +580,7 @@ def inspect_data():
         data = request.get_json()
         org_id = data.get("org_id", "")
         
-        storage = noderag_service.get_neo4j_storage()
+        storage = noderag_service.get_neon_storage()
         result = asyncio.run(inspect_data_async(storage, org_id))
         
         return jsonify(result)
@@ -641,7 +641,7 @@ async def inspect_data_async(storage, org_id):
 def debug_db():
     """Debug database contents"""
     try:
-        storage = noderag_service.get_neo4j_storage()
+        storage = noderag_service.get_neon_storage()
         result = storage.inspect_all_data()
         return jsonify(result)
         
@@ -665,7 +665,7 @@ def delete_file():
         
         logger.info(f"🗑️ Deleting NodeRAG data: org_id={org_id}, file_id={file_id}")
         
-        storage = noderag_service.get_neo4j_storage()
+        storage = noderag_service.get_neon_storage()
         delete_result = storage.delete_file_data(org_id=org_id, file_id=file_id)
         
         # Clean up processing status
@@ -719,11 +719,9 @@ def generate_response():
         
         logger.info(f"📥 INCOMING REQUEST: org_id={org_id}, user_id={user_id}, query='{query}', max_tokens={max_tokens}, temperature={temperature}")
         
-        # Diagnostic logging for Neo4j connection
-        neo4j_uri = os.getenv("NEO4J_URI", "NOT_SET")
-        neo4j_user = os.getenv("NEO4J_USERNAME", "NOT_SET")
-        neo4j_pass = "SET" if os.getenv("NEO4J_PASSWORD") else "NOT_SET"
-        logger.info(f"🔧 NEO4J CONFIG: URI={neo4j_uri[:20]}..., USER={neo4j_user}, PASS={neo4j_pass}")
+        # Diagnostic logging for NeonDB connection
+        neon_uri = os.getenv("NEON_DATABASE_URL", "NOT_SET")
+        logger.info(f"🔧 NEONDB CONFIG: URI={'SET' if neon_uri != 'NOT_SET' else 'NOT_SET'}")
         
         logger.info(f"🤖 Generating NodeRAG response for org_id: {org_id}, user_id: {user_id}, query: '{query[:50]}...'")
         
@@ -752,7 +750,7 @@ def generate_response():
             
             # For greetings, provide a helpful response and try to show available data
             try:
-                storage = noderag_service.get_neo4j_storage()
+                storage = noderag_service.get_neon_storage()
                 
                 # Quick check if any data exists for this org
                 quick_search = storage.search_noderag_data(
@@ -821,137 +819,183 @@ def generate_response():
                 logger.warning(f"⚠️ Greeting handler error: {e}")
                 # Fall through to normal processing if greeting handler fails
         
-        # PRODUCTION FIX: Always use Neo4j storage for consistent, reliable data access
-        # This ensures all instances serve the same data regardless of in-memory state
-        logger.info("📊 Using Neo4j storage search for production reliability")
-        storage = noderag_service.get_neo4j_storage()
+        # ENHANCED RETRIEVAL: Try NodeRAG advanced search first, fallback to storage
+        # This provides the best retrieval quality when graph is available
+        advanced_search = noderag_service.get_advanced_search()
+        storage = noderag_service.get_neon_storage()
         
-        # 🔍 AGENTIC EXPLORATION: For knowledge discovery, use smart multi-query approach
-        if is_knowledge_discovery:
-            logger.info("🔍 Performing optimized agentic knowledge exploration")
+        if advanced_search is not None:
+            logger.info("🧠 Using NodeRAG advanced search system for optimal retrieval")
+            # Use NodeRAG's multi-modal retrieval approach
+            try:
+                retrieval_result = advanced_search.search(
+                    query=query,
+                    k_hnsw=20,  # More candidates for better coverage
+                    k_final=40,  # More final nodes for richer context
+                    entity_nodes_limit=20,
+                    relationship_nodes_limit=50,
+                    high_level_nodes_limit=20
+                )
+                
+                # Filter by org_id and build search results
+                search_results = []
+                for node_id in retrieval_result.final_nodes:
+                    node = advanced_search.graph_manager.get_node(node_id)
+                    if node and node.metadata.get('org_id') == org_id:
+                        search_results.append({
+                            'node_id': node_id,
+                            'content': node.content,
+                            'node_type': node.type.value if hasattr(node.type, 'value') else str(node.type),
+                            'file_id': node.metadata.get('file_id', ''),
+                            'user_id': node.metadata.get('user_id', ''),
+                            'similarity_score': 0.95,  # High score for advanced search
+                            'metadata': node.metadata,
+                            'source': 'advanced_search'
+                        })
+                
+                logger.info(f"🧠 Advanced search found {len(search_results)} org-filtered results")
+                
+                if search_results:
+                    # Use advanced search results
+                    logger.info(f"✅ Using advanced search results: {len(search_results)} nodes")
+                else:
+                    logger.info("⚠️ No org-filtered results from advanced search, falling back to storage")
+                    advanced_search = None  # Force fallback
+                    
+            except Exception as e:
+                logger.warning(f"⚠️ Advanced search failed: {e}, falling back to storage")
+                advanced_search = None  # Force fallback
+                search_results = []
+        
+        if advanced_search is None:
+            logger.info("📊 Using NeonDB storage search for retrieval")
             
-            # Get overview nodes (H, O types) - prioritize high-level summaries
-            overview_results = storage.search_noderag_data(
-                org_id=org_id,
-                query="overview summary main topics key information executive summary conclusions",
-                top_k=20,  # Increased for better coverage
-                filters={"node_type": "H"}
-            )
+            # 🔍 STORAGE-BASED SEARCH: Use smart multi-query approach for knowledge discovery
+            if is_knowledge_discovery:
+                logger.info("🔍 Performing optimized agentic knowledge exploration")
+                
+                # Get overview nodes (H, O types) - prioritize high-level summaries
+                overview_results = storage.search_noderag_data(
+                    org_id=org_id,
+                    query="overview summary main topics key information executive summary conclusions",
+                    top_k=20,  # Increased for better coverage
+                    filters={"node_type": "H"}
+                )
             
-            # Get key entities (N types) - focus on important names and organizations
-            entity_results = storage.search_noderag_data(
-                org_id=org_id, 
-                query="companies organizations entities names people products services key players",
-                top_k=15,
-                filters={"node_type": "N"}
-            )
+                # Get key entities (N types) - focus on important names and organizations
+                entity_results = storage.search_noderag_data(
+                    org_id=org_id, 
+                    query="companies organizations entities names people products services key players",
+                    top_k=15,
+                    filters={"node_type": "N"}
+                )
+                
+                # Get semantic chunks (S types) - get diverse content based on original query
+                semantic_results = storage.search_noderag_data(
+                    org_id=org_id,
+                    query=f"{query} content details information data",
+                    top_k=20,
+                    filters={"node_type": "S"}
+                )
+                
+                # Get relationship insights (R types) - capture connections and dependencies
+                relationship_results = storage.search_noderag_data(
+                    org_id=org_id,
+                    query="relationships connections dependencies interactions processes workflows",
+                    top_k=10,
+                    filters={"node_type": "R"}
+                )
             
-            # Get semantic chunks (S types) - get diverse content based on original query
-            semantic_results = storage.search_noderag_data(
-                org_id=org_id,
-                query=f"{query} content details information data",
-                top_k=20,
-                filters={"node_type": "S"}
-            )
+                # Combine results intelligently with score-based prioritization
+                search_results = []
+                
+                # Prioritize overview content (highest priority for knowledge discovery)
+                search_results.extend(overview_results)
+                
+                # Add key entities with deduplication
+                added_nodes = {r['node_id'] for r in search_results}
+                for result in entity_results:
+                    if result['node_id'] not in added_nodes:
+                        search_results.append(result)
+                        added_nodes.add(result['node_id'])
+                
+                # Add relationship insights for context
+                for result in relationship_results:
+                    if result['node_id'] not in added_nodes and len(search_results) < 30:
+                        search_results.append(result)
+                        added_nodes.add(result['node_id'])
+                
+                # Add semantic content (fill remaining slots)
+                for result in semantic_results:
+                    if result['node_id'] not in added_nodes and len(search_results) < 35:
+                        search_results.append(result)
+                        added_nodes.add(result['node_id'])
+                
+                # Sort by similarity score for final ranking
+                search_results.sort(key=lambda x: x.get('similarity_score', 0), reverse=True)
+                
+                logger.info(f"🧠 Optimized agentic exploration found: {len(overview_results)} overview + {len(entity_results)} entities + {len(relationship_results)} relationships + {len(semantic_results)} semantic = {len(search_results)} total")
             
-            # Get relationship insights (R types) - capture connections and dependencies
-            relationship_results = storage.search_noderag_data(
-                org_id=org_id,
-                query="relationships connections dependencies interactions processes workflows",
-                top_k=10,
-                filters={"node_type": "R"}
-            )
-            
-            # Combine results intelligently with score-based prioritization
-            search_results = []
-            
-            # Prioritize overview content (highest priority for knowledge discovery)
-            search_results.extend(overview_results)
-            
-            # Add key entities with deduplication
-            added_nodes = {r['node_id'] for r in search_results}
-            for result in entity_results:
-                if result['node_id'] not in added_nodes:
-                    search_results.append(result)
-                    added_nodes.add(result['node_id'])
-            
-            # Add relationship insights for context
-            for result in relationship_results:
-                if result['node_id'] not in added_nodes and len(search_results) < 30:
-                    search_results.append(result)
-                    added_nodes.add(result['node_id'])
-            
-            # Add semantic content (fill remaining slots)
-            for result in semantic_results:
-                if result['node_id'] not in added_nodes and len(search_results) < 35:
-                    search_results.append(result)
-                    added_nodes.add(result['node_id'])
-            
-            # Sort by similarity score for final ranking
-            search_results.sort(key=lambda x: x.get('similarity_score', 0), reverse=True)
-            
-            logger.info(f"🧠 Optimized agentic exploration found: {len(overview_results)} overview + {len(entity_results)} entities + {len(relationship_results)} relationships + {len(semantic_results)} semantic = {len(search_results)} total")
-            
-        else:
-            # Enhanced standard search for specific queries
-            logger.info("🎯 Performing enhanced targeted search")
-            
-            # Primary search with the original query
-            primary_results = storage.search_noderag_data(
-                org_id=org_id,
-                query=query,
-                top_k=25
-            )
-            
-            # Secondary search for context with expanded query
-            context_query = f"{query} related information context background details"
-            context_results = storage.search_noderag_data(
-                org_id=org_id,
-                query=context_query,
-                top_k=15
-            )
-            
-            # Combine and deduplicate
-            search_results = primary_results.copy()
-            added_nodes = {r['node_id'] for r in search_results}
-            
-            for result in context_results:
-                if result['node_id'] not in added_nodes and len(search_results) < 30:
-                    search_results.append(result)
-                    added_nodes.add(result['node_id'])
-            
-            # Sort by relevance
-            search_results.sort(key=lambda x: x.get('similarity_score', 0), reverse=True)
-            logger.info(f"🎯 Enhanced search found: {len(primary_results)} primary + {len(context_results)} context = {len(search_results)} total")
+            else:
+                # Enhanced standard search for specific queries
+                logger.info("🎯 Performing enhanced targeted search")
+                
+                # Primary search with the original query
+                primary_results = storage.search_noderag_data(
+                    org_id=org_id,
+                    query=query,
+                    top_k=25
+                )
+                
+                # Secondary search for context with expanded query
+                context_query = f"{query} related information context background details"
+                context_results = storage.search_noderag_data(
+                    org_id=org_id,
+                    query=context_query,
+                    top_k=15
+                )
+                
+                # Combine and deduplicate
+                search_results = primary_results.copy()
+                added_nodes = {r['node_id'] for r in search_results}
+                
+                for result in context_results:
+                    if result['node_id'] not in added_nodes and len(search_results) < 30:
+                        search_results.append(result)
+                        added_nodes.add(result['node_id'])
+                
+                # Sort by relevance
+                search_results.sort(key=lambda x: x.get('similarity_score', 0), reverse=True)
+                logger.info(f"🎯 Enhanced search found: {len(primary_results)} primary + {len(context_results)} context = {len(search_results)} total")
         
         if not search_results:
-                # Try to provide a helpful response even when no data is found
-                try:
-                    stats = storage.get_storage_stats(org_id)
-                    total_files = stats.get('stats', {}).get('total_files', 0)
-                    
-                    if total_files == 0:
-                        helpful_response = f"I don't have any documents in the knowledge base for your organization (org_id: {org_id}). Please upload some documents first using the upload API, then I'll be able to answer questions about your content."
-                    else:
-                        helpful_response = f"I found {total_files} documents in your knowledge base, but couldn't find information relevant to '{query}'. Try asking more specific questions or use broader terms like 'overview', 'summary', or 'what data do you have available?'"
-                except:
-                    helpful_response = f"I couldn't find relevant information for '{query}' in your knowledge base. This might be because there are no documents uploaded for your organization, or the query doesn't match the available content. Try asking 'what data do you have available?' to explore what's available."
+            # Try to provide a helpful response even when no data is found
+            try:
+                stats = storage.get_storage_stats(org_id)
+                total_files = stats.get('stats', {}).get('total_files', 0)
                 
-                response_data = {
-                    "query": query,
-                    "response": helpful_response,
-                    "sources": [],
-                    "node_types": {},
-                    "confidence": 0.0,
-                    "context_used": 0,
-                    "search_results": 0,
-                    "algorithm_used": "Neo4j Storage Vector Search",
-                    "helpful_suggestion": True,
-                    "org_id": org_id
-                }
-                
-                logger.info(f"📤 EMPTY RESULTS RESPONSE SENT (Neo4j Search): {json.dumps(response_data, indent=2)}")
-                return jsonify(response_data)
+                if total_files == 0:
+                    helpful_response = f"I don't have any documents in the knowledge base for your organization (org_id: {org_id}). Please upload some documents first using the upload API, then I'll be able to answer questions about your content."
+                else:
+                    helpful_response = f"I found {total_files} documents in your knowledge base, but couldn't find information relevant to '{query}'. Try asking more specific questions or use broader terms like 'overview', 'summary', or 'what data do you have available?'"
+            except:
+                helpful_response = f"I couldn't find relevant information for '{query}' in your knowledge base. This might be because there are no documents uploaded for your organization, or the query doesn't match the available content. Try asking 'what data do you have available?' to explore what's available."
+            
+            response_data = {
+                "query": query,
+                "response": helpful_response,
+                "sources": [],
+                "node_types": {},
+                "confidence": 0.0,
+                "context_used": 0,
+                "search_results": 0,
+                "algorithm_used": "NeonDB Storage Vector Search",
+                "helpful_suggestion": True,
+                "org_id": org_id
+            }
+            
+            logger.info(f"📤 EMPTY RESULTS RESPONSE SENT (NeonDB Search): {json.dumps(response_data, indent=2)}")
+            return jsonify(response_data)
             
         # Build context from search results
         filtered_context_parts = []
@@ -1015,16 +1059,16 @@ RESPONSE:"""
         # Generate initial answer
         final_response = llm_service._chat_completion(
             prompt=answer_prompt,
-            temperature=0.6 if is_knowledge_discovery else temperature,  # Slightly lower temp for exploration
+            temperature=0.1,  # Very low temperature for deterministic, single responses
             max_tokens=max_tokens
         )
         
         logger.info(f"✅ Generated response length: {len(final_response)} characters")
         logger.info(f"📄 Response preview: {final_response[:200]}...")
         
-        # If we have conversation history, enhance the answer
+        # If we have conversation history, enhance the answer with strict formatting
         if conversation_history and final_response:
-            enhanced_prompt = f"""Given the previous conversation context and the answer below, please refine the answer to be more contextual and helpful:
+            enhanced_prompt = f"""You are a precise knowledge assistant. Provide exactly ONE direct answer based on the context and conversation history.
 
 Previous conversation:
 {conversation_history}
@@ -1033,11 +1077,27 @@ Current question: {query}
 
 Generated answer: {final_response}
 
-Please provide a refined response that takes into account the conversation history:"""
+STRICT INSTRUCTIONS:
+- Provide ONE refined answer only
+- NEVER provide multiple options (no "Option 1", "Option 2", "Here are a few", etc.)
+- NO explanations or justifications for your refinement
+- NO meta-commentary about response quality
+- Consider the conversation history but maintain factual accuracy
+- If the generated answer is correct, keep it simple and direct
+
+FORBIDDEN WORDS/PHRASES:
+- "Option"
+- "Here are"
+- "Choice" 
+- "Alternative"
+- "Why it's better"
+- "Which option"
+
+Refined response:"""
             
             final_response = llm_service._chat_completion(
                 prompt=enhanced_prompt,
-                temperature=temperature,
+                temperature=0.1,  # Very low temperature for deterministic responses
                 max_tokens=max_tokens
             )
         
@@ -1069,7 +1129,7 @@ Please provide a refined response that takes into account the conversation histo
             quality_metrics["token_efficiency"] * 0.15
         )
         
-        # Store token usage and response metadata in Neo4j
+        # Store token usage and response metadata in NeonDB
         try:
             response_metadata = {
                 "query": query[:500],  # Truncate for storage
@@ -1077,7 +1137,7 @@ Please provide a refined response that takes into account the conversation histo
                 "retrieval_count": len(search_results),
                 "unique_sources": len(source_files),
                 "processing_time": round(processing_time, 2),
-                "algorithm": "Agentic Knowledge Discovery" if is_knowledge_discovery else "Neo4j Storage Vector Search",
+                "algorithm": "Agentic Knowledge Discovery" if is_knowledge_discovery else "NeonDB Storage Vector Search",
                 "confidence": confidence,
                 "quality_score": round(quality_score, 3),
                 "quality_metrics": quality_metrics
@@ -1097,7 +1157,7 @@ Please provide a refined response that takes into account the conversation histo
         except Exception as e:
             logger.warning(f"⚠️ Failed to store token usage: {e}")
         
-        logger.info(f"✅ Generated Neo4j storage response with {len(search_results)} sources in {processing_time:.2f}s")
+        logger.info(f"✅ Generated NeonDB storage response with {len(search_results)} sources in {processing_time:.2f}s")
         
         response_data = {
             "query": query,
@@ -1108,7 +1168,7 @@ Please provide a refined response that takes into account the conversation histo
             "context_used": len(search_results),
             "search_results": len(search_results),
             "context_length": len(retrieved_info),
-            "algorithm_used": "Agentic Knowledge Discovery" if is_knowledge_discovery else "Neo4j Storage Vector Search",
+            "algorithm_used": "Agentic Knowledge Discovery" if is_knowledge_discovery else "NeonDB Storage Vector Search",
             "agentic_mode": is_knowledge_discovery,
             "processing_time": round(processing_time, 2),
             "token_usage": {
@@ -1133,7 +1193,7 @@ Please provide a refined response that takes into account the conversation histo
             }
         }
         
-        logger.info(f"📤 SUCCESSFUL RESPONSE SENT (Neo4j Search): Query='{query}', Sources={len(source_files)}, Confidence={confidence:.3f}")
+        logger.info(f"📤 SUCCESSFUL RESPONSE SENT (NeonDB Search): Query='{query}', Sources={len(source_files)}, Confidence={confidence:.3f}")
         logger.debug(f"📤 FULL RESPONSE DATA: {json.dumps(response_data, indent=2)}")
         return jsonify(response_data)
         
@@ -1141,7 +1201,7 @@ Please provide a refined response that takes into account the conversation histo
         logger.error(f"❌ Invalid input: {e}")
         return jsonify({"error": f"Invalid input: {str(e)}"}), 400
     except ConnectionError as e:
-        logger.error(f"❌ Neo4j connection error: {e}")
+        logger.error(f"❌ NeonDB connection error: {e}")
         return jsonify({"error": "Database connection failed. Please try again later."}), 503
     except TimeoutError as e:
         logger.error(f"❌ Request timeout: {e}")
@@ -1157,7 +1217,7 @@ Please provide a refined response that takes into account the conversation histo
                 processing_time = time.time() - start_time if 'start_time' in locals() else 0
                 
                 # Store failed request metrics
-                storage = noderag_service.get_neo4j_storage()
+                storage = noderag_service.get_neon_storage()
                 storage.store_api_usage(
                     org_id=data.get("org_id", "unknown"),
                     user_id=data.get("user_id", "api_user"),
@@ -1201,7 +1261,7 @@ def delete_embeddings():
             """Background task to delete embeddings and send webhook"""
             try:
                 print(f"🔄 Starting background delete for delete_id={delete_id}")
-                storage = noderag_service.get_neo4j_storage()
+                storage = noderag_service.get_neon_storage()
                 
                 total_deleted_embeddings = 0
                 total_deleted_graphs = 0

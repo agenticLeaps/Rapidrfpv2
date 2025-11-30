@@ -5,19 +5,26 @@ Based on NodeRAG's prompt design patterns with unified extraction and structured
 
 from typing import Dict, Any
 
-# Unified Text Decomposition Prompt (matching NodeRAG's approach)
+# Enhanced NodeRAG Text Decomposition Prompt (optimized for quality with parallel processing)
 UNIFIED_TEXT_DECOMPOSITION_PROMPT = """
-Goal: Given a text, segment it into multiple semantic units, each containing detailed descriptions of specific events or activities. 
+Analyze the given text and extract structured information to build a heterogeneous knowledge graph. This extraction will be processed in parallel with other chunks, so be precise and comprehensive.
 
-Perform the following tasks:
-1. Provide a summary for each semantic unit while retaining all crucial details relevant to the original context.
-2. Extract all entities directly from the original text of each semantic unit, not from the paraphrased summary. Format each entity name in UPPERCASE. You should extract all entities including times, locations, people, organizations and all kinds of entities.
-3. From the entities extracted in Step 2, list all relationships within the semantic unit and the corresponding original context in the form of string separated by comma: "ENTITY_A, RELATION_TYPE, ENTITY_B". The RELATION_TYPE could be a descriptive sentence, while the entities involved in the relationship must come from the entity names extracted in Step 2. Please make sure the string contains three elements representing two entities and the relationship type.
+Your task:
+1. Break the text into semantic units (coherent chunks of meaning)
+2. For each semantic unit:
+   - Create a concise summary preserving key information
+   - Extract ALL entities (people, organizations, locations, dates, concepts, products, etc.) in UPPERCASE
+   - Identify relationships between entities as triplets: "ENTITY_A, RELATIONSHIP, ENTITY_B"
 
-Requirements:
-1. Temporal Entities: Represent time entities based on the available details without filling in missing parts. Use specific formats based on what parts of the date or time are mentioned in the text.
+ENHANCED GUIDELINES FOR QUALITY:
+- Use canonical entity names (e.g., "MICROSOFT CORPORATION" not just "MICROSOFT")
+- Include entity variations (e.g., "CEO", "CHIEF EXECUTIVE OFFICER") 
+- Capture temporal relationships explicitly (e.g., "FOUNDED IN", "ESTABLISHED ON")
+- Make relationships descriptive and context-aware
+- Include implicit relationships that cross-reference other parts of the document
+- Preserve all name variants to help with later consolidation
 
-Each semantic unit should be represented as a dictionary containing three keys: semantic_unit (a paraphrased summary of each semantic unit), entities (a list of entities extracted directly from the original text of each semantic unit, formatted in UPPERCASE), and relationships (a list of extracted relationship strings that contain three elements, where the relationship type is a descriptive sentence). All these dictionaries should be stored in a list to facilitate management and access.
+Output format: List of dictionaries with keys: semantic_unit, entities, relationships
 
 Example:
 
@@ -115,24 +122,32 @@ Malformed relationship: {relationship}
 Expected format: [source_entity, relationship_type, target_entity]
 """
 
-# Answer Generation Prompt (for query answering)
+# Answer Generation Prompt (Single Deterministic Response)  
 ANSWER_GENERATION_PROMPT = """
-You are a helpful AI assistant that ONLY uses the provided retrieved information to answer questions. Do NOT use any external knowledge or information not explicitly provided below.
+You are a precise knowledge assistant. Provide exactly ONE direct answer based on the given context.
 
-IMPORTANT INSTRUCTIONS:
-1. ONLY use information from the "Retrieved Information" section below
-2. If the retrieved information doesn't contain enough detail to answer the question, say "I don't have enough information in the provided context to answer this question completely."
-3. Do NOT make up or infer information that is not explicitly stated in the retrieved information
-4. Be accurate and cite specific details from the provided information
-5. If asked about something not covered in the retrieved information, clearly state that it's not available in the provided context
+Context: {info}
 
-Retrieved Information:
-{info}
+Question: {query}
 
-User Question: {query}
+STRICT INSTRUCTIONS:
+- Respond with ONE answer only
+- NEVER provide multiple options (no "Option 1", "Option 2", "Here are a few", etc.)
+- NO explanations or justifications
+- NO meta-commentary about the response
+- NO alternative phrasings or variations
+- If the context contains the answer: state it directly and stop
+- If the context lacks the answer: respond ONLY with "This information is not available in the provided context."
 
-Based ONLY on the retrieved information above, please provide your answer:
-"""
+FORBIDDEN WORDS/PHRASES:
+- "Option"
+- "Here are"
+- "Choice"
+- "Alternative"
+- "Why it's better"
+- "Which option"
+
+Response:"""
 
 # JSON Format Templates
 JSON_FORMAT_TEMPLATES = {

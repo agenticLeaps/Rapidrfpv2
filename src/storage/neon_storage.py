@@ -18,7 +18,7 @@ from ..llm.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
 
-class Neo4jStorage:
+class NeonStorage:
     def __init__(self):
         self.db_url = os.getenv("NEON_DATABASE_URL")
         if not self.db_url:
@@ -67,14 +67,18 @@ class Neo4jStorage:
                 );
             """)
             
-            # Add updated_at column to existing noderag_graphs table if it doesn't exist
+            # Add updated_at column and token tracking columns to existing noderag_graphs table if they don't exist
             try:
                 await conn.execute("""
                     ALTER TABLE noderag_graphs 
-                    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    ADD COLUMN IF NOT EXISTS input_tokens INTEGER DEFAULT 0,
+                    ADD COLUMN IF NOT EXISTS output_tokens INTEGER DEFAULT 0,
+                    ADD COLUMN IF NOT EXISTS total_tokens INTEGER DEFAULT 0,
+                    ADD COLUMN IF NOT EXISTS api_calls INTEGER DEFAULT 0
                 """)
             except Exception as e:
-                logger.warning(f"Could not add updated_at column (might already exist): {e}")
+                logger.warning(f"Could not add columns (might already exist): {e}")
             
             # Create indexes for better performance
             await conn.execute("CREATE INDEX IF NOT EXISTS idx_noderag_embeddings_org_file ON noderag_embeddings(org_id, file_id);")
@@ -86,12 +90,15 @@ class Neo4jStorage:
         finally:
             await conn.close()
     
-    def store_noderag_data(self, org_id: str, file_id: str, user_id: str, pipeline) -> Dict[str, Any]:
-        """Store NodeRAG graph and embeddings data"""
-        return asyncio.run(self._store_noderag_data_async(org_id, file_id, user_id, pipeline))
+    def store_noderag_data(self, org_id: str, file_id: str, user_id: str, pipeline, 
+                          input_tokens: int = 0, output_tokens: int = 0, api_calls: int = 0) -> Dict[str, Any]:
+        """Store NodeRAG graph and embeddings data with token tracking"""
+        return asyncio.run(self._store_noderag_data_async(org_id, file_id, user_id, pipeline, 
+                                                         input_tokens, output_tokens, api_calls))
     
-    async def _store_noderag_data_async(self, org_id: str, file_id: str, user_id: str, pipeline) -> Dict[str, Any]:
-        """Async implementation of store_noderag_data"""
+    async def _store_noderag_data_async(self, org_id: str, file_id: str, user_id: str, pipeline, 
+                                       input_tokens: int = 0, output_tokens: int = 0, api_calls: int = 0) -> Dict[str, Any]:
+        """Async implementation of store_noderag_data with token tracking"""
         try:
             await self._ensure_tables_exist()
             conn = await self._get_connection()
@@ -103,20 +110,26 @@ class Neo4jStorage:
                 # Start transaction
                 async with conn.transaction():
                     
-                    # 1. Store graph data
+                    # 1. Store graph data with token tracking
                     graph_data = pickle.dumps(pipeline.graph_manager.graph)
                     graph_stats = pipeline.graph_manager.get_stats()
+                    total_tokens = input_tokens + output_tokens
                     
                     await conn.execute("""
                         INSERT INTO noderag_graphs 
-                        (file_id, org_id, user_id, graph_data, stats)
-                        VALUES ($1, $2, $3, $4, $5)
+                        (file_id, org_id, user_id, graph_data, stats, input_tokens, output_tokens, total_tokens, api_calls)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                         ON CONFLICT (org_id, file_id) 
                         DO UPDATE SET 
                             graph_data = EXCLUDED.graph_data,
                             stats = EXCLUDED.stats,
+                            input_tokens = EXCLUDED.input_tokens,
+                            output_tokens = EXCLUDED.output_tokens,
+                            total_tokens = EXCLUDED.total_tokens,
+                            api_calls = EXCLUDED.api_calls,
                             updated_at = CURRENT_TIMESTAMP
-                    """, file_id, org_id, user_id, graph_data, json.dumps(graph_stats))
+                    """, file_id, org_id, user_id, graph_data, json.dumps(graph_stats), 
+                        input_tokens, output_tokens, total_tokens, api_calls)
                     
                     stored_graphs = 1
                     logger.info(f"✅ Stored graph data for file_id={file_id}")
@@ -139,7 +152,8 @@ class Neo4jStorage:
                         org_id, file_id
                     )
                     
-                    # Store new embeddings
+                    # Store new embeddings in optimized batch operations
+                    embedding_records = []
                     for node in all_nodes:
                         if hasattr(node, 'embeddings') and node.embeddings is not None:
                             try:
@@ -152,38 +166,40 @@ class Neo4jStorage:
                                     'node_type_value': node.type.value if hasattr(node.type, 'value') else str(node.type)
                                 }
                                 
-                                await conn.execute("""
-                                    INSERT INTO noderag_embeddings 
-                                    (node_id, node_type, content, embedding, org_id, file_id, user_id, 
-                                     chunk_index, graph_metadata)
-                                    VALUES ($1, $2, $3, $4::vector, $5, $6, $7, $8, $9)
-                                    ON CONFLICT (node_id) DO UPDATE SET
-                                        node_type = EXCLUDED.node_type,
-                                        content = EXCLUDED.content,
-                                        embedding = EXCLUDED.embedding,
-                                        org_id = EXCLUDED.org_id,
-                                        file_id = EXCLUDED.file_id,
-                                        user_id = EXCLUDED.user_id,
-                                        chunk_index = EXCLUDED.chunk_index,
-                                        graph_metadata = EXCLUDED.graph_metadata,
-                                        updated_at = CURRENT_TIMESTAMP
-                                """, 
+                                embedding_records.append((
                                     node.id,
                                     node.type.value if hasattr(node.type, 'value') else str(node.type),
-                                    node.content[:2000],  # Limit content length
+                                    node.content,
                                     embedding_str,
                                     org_id,
                                     file_id,
                                     user_id,
-                                    stored_embeddings,  # Use as chunk_index
+                                    getattr(node, 'chunk_index', 0),
                                     json.dumps(graph_metadata)
-                                )
-                                
-                                stored_embeddings += 1
+                                ))
                                 
                             except Exception as e:
-                                logger.error(f"Error storing embedding for node {node.id}: {e}")
-                                continue
+                                logger.warning(f"Failed to prepare embedding for node {node.id}: {e}")
+                    
+                    # Batch insert all embeddings for better performance
+                    if embedding_records:
+                        await conn.executemany("""
+                            INSERT INTO noderag_embeddings 
+                            (node_id, node_type, content, embedding, org_id, file_id, user_id, 
+                             chunk_index, graph_metadata)
+                            VALUES ($1, $2, $3, $4::vector, $5, $6, $7, $8, $9)
+                            ON CONFLICT (node_id) DO UPDATE SET
+                                node_type = EXCLUDED.node_type,
+                                content = EXCLUDED.content,
+                                embedding = EXCLUDED.embedding,
+                                org_id = EXCLUDED.org_id,
+                                file_id = EXCLUDED.file_id,
+                                user_id = EXCLUDED.user_id,
+                                chunk_index = EXCLUDED.chunk_index,
+                                graph_metadata = EXCLUDED.graph_metadata,
+                                updated_at = CURRENT_TIMESTAMP
+                        """, embedding_records)
+                        stored_embeddings = len(embedding_records)
                     
                     logger.info(f"✅ Stored {stored_embeddings} embeddings for file_id={file_id}")
                 
@@ -434,3 +450,79 @@ class Neo4jStorage:
         except Exception as e:
             logger.error(f"❌ Stats error: {e}")
             return {"error": str(e)}
+    
+    def store_api_usage(self, org_id: str, user_id: str, endpoint: str, 
+                       input_tokens: int, output_tokens: int, total_tokens: int, 
+                       api_calls: int, metadata: dict = None) -> Dict[str, Any]:
+        """Store API usage tracking data"""
+        return asyncio.run(self._store_api_usage_async(
+            org_id, user_id, endpoint, input_tokens, output_tokens, 
+            total_tokens, api_calls, metadata
+        ))
+    
+    async def _store_api_usage_async(self, org_id: str, user_id: str, endpoint: str, 
+                                    input_tokens: int, output_tokens: int, total_tokens: int, 
+                                    api_calls: int, metadata: dict = None) -> Dict[str, Any]:
+        """Async implementation of store_api_usage"""
+        try:
+            await self._ensure_api_usage_table_exists()
+            conn = await self._get_connection()
+            
+            try:
+                await conn.execute("""
+                    INSERT INTO api_usage_tracking 
+                    (org_id, user_id, endpoint, input_tokens, output_tokens, total_tokens, api_calls, metadata)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                """, org_id, user_id, endpoint, input_tokens, output_tokens, 
+                    total_tokens, api_calls, json.dumps(metadata) if metadata else None)
+                
+                logger.info(f"✅ Stored API usage: {endpoint} - tokens={total_tokens}, calls={api_calls}")
+                return {"success": True}
+                
+            finally:
+                await conn.close()
+                
+        except Exception as e:
+            logger.error(f"❌ API usage storage error: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def _ensure_api_usage_table_exists(self):
+        """Ensure API usage tracking table exists"""
+        try:
+            conn = await self._get_connection()
+            
+            try:
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS api_usage_tracking (
+                        id SERIAL PRIMARY KEY,
+                        org_id VARCHAR(255) NOT NULL,
+                        user_id VARCHAR(255) NOT NULL,
+                        endpoint VARCHAR(100) NOT NULL,
+                        input_tokens INTEGER DEFAULT 0,
+                        output_tokens INTEGER DEFAULT 0,
+                        total_tokens INTEGER DEFAULT 0,
+                        api_calls INTEGER DEFAULT 0,
+                        metadata JSONB,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                """)
+                
+                # Create index for better performance
+                await conn.execute("CREATE INDEX IF NOT EXISTS idx_api_usage_org_endpoint ON api_usage_tracking(org_id, endpoint);")
+                await conn.execute("CREATE INDEX IF NOT EXISTS idx_api_usage_created ON api_usage_tracking(created_at);")
+                
+                logger.debug("✅ API usage tracking table ensured")
+                
+            finally:
+                await conn.close()
+                
+        except Exception as e:
+            logger.warning(f"Could not create API usage table: {e}")
+    
+    def get_storage_stats(self, org_id: str) -> Dict[str, Any]:
+        """Get storage statistics for a specific organization"""
+        stats_result = self.get_stats(org_id)
+        return {
+            "success": True,
+            "stats": stats_result
+        }
