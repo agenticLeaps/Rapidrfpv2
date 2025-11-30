@@ -63,8 +63,68 @@ class Config:
     DEFAULT_TEMPERATURE = get_float_config("DEFAULT_TEMPERATURE", 0.7)
     DEFAULT_TOP_P = get_float_config("DEFAULT_TOP_P", 0.9)
     
-    # Batch Processing
+    # Environment Detection
+    IS_RENDER = get_bool_config("IS_RENDER", False) or "render" in get_config_value("HOSTNAME", "").lower()
+    IS_CLOUD = IS_RENDER or get_bool_config("IS_CLOUD", False)
+    
+    # Batch Processing - Environment Aware
     DEFAULT_BATCH_SIZE = get_int_config("DEFAULT_BATCH_SIZE", 16)
+    RENDER_BATCH_SIZE = get_int_config("RENDER_BATCH_SIZE", 8)
+    CLOUD_BATCH_SIZE = get_int_config("CLOUD_BATCH_SIZE", 10)
+    
+    # Rate Limiting & Delays
+    BASE_DELAY = get_float_config("BASE_DELAY", 0.1)
+    RENDER_BASE_DELAY = get_float_config("RENDER_BASE_DELAY", 0.5)
+    MAX_DELAY = get_float_config("MAX_DELAY", 3.0)
+    
+    # Memory Management
+    GC_EVERY_N_BATCHES = get_int_config("GC_EVERY_N_BATCHES", 10)
+    MEMORY_CHECK_INTERVAL = get_int_config("MEMORY_CHECK_INTERVAL", 5)
+    
+    # Retry Configuration
+    MAX_RETRIES = get_int_config("MAX_RETRIES", 3)
+    RETRY_DELAY_BASE = get_float_config("RETRY_DELAY_BASE", 1.0)
+    
+    # Checkpoint Configuration
+    ENABLE_CHECKPOINTS = get_bool_config("ENABLE_CHECKPOINTS", True)
+    CHECKPOINT_INTERVAL = get_int_config("CHECKPOINT_INTERVAL", 20)
+    
+    @classmethod
+    def get_adaptive_batch_size(cls, total_items: int = None) -> int:
+        """Get adaptive batch size based on environment and total items."""
+        if cls.IS_RENDER:
+            base_size = cls.RENDER_BATCH_SIZE
+        elif cls.IS_CLOUD:
+            base_size = cls.CLOUD_BATCH_SIZE
+        else:
+            base_size = cls.DEFAULT_BATCH_SIZE
+        
+        # For very large datasets, reduce batch size to prevent memory issues
+        if total_items and total_items > 1000:
+            if cls.IS_RENDER:
+                return max(4, min(base_size, 6))  # 4-6 for Render on large datasets
+            elif cls.IS_CLOUD:
+                return max(6, min(base_size, 8))  # 6-8 for other cloud on large datasets
+            else:
+                return max(8, min(base_size, 12))  # 8-12 for local on large datasets
+        
+        return base_size
+    
+    @classmethod
+    def get_adaptive_delay(cls, batch_num: int, total_batches: int = None) -> float:
+        """Get adaptive delay based on environment and progress."""
+        if cls.IS_RENDER:
+            base_delay = cls.RENDER_BASE_DELAY
+            # Progressive delay for Render - more aggressive
+            progress_factor = (batch_num / max(total_batches or 100, 1)) if total_batches else 0.1
+            return min(base_delay + (progress_factor * 2.0), cls.MAX_DELAY)
+        elif cls.IS_CLOUD:
+            # Moderate delay for other cloud platforms
+            progress_factor = (batch_num / max(total_batches or 100, 1)) if total_batches else 0.1
+            return min(cls.BASE_DELAY + (progress_factor * 1.0), cls.MAX_DELAY * 0.8)
+        else:
+            # Minimal delay for local
+            return cls.BASE_DELAY
     
     # Storage - migrated from NeonDB to Neo4j
     DATA_DIR = get_config_value("DATA_DIR", "data")

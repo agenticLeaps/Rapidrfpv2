@@ -490,40 +490,46 @@ Title:"""
             return "Community Overview"
     
     def get_embeddings(self, texts: List[str], batch_size: int = None) -> List[List[float]]:
-        """Get embeddings for a list of texts using OpenAI embeddings."""
+        """Get embeddings for a list of texts using OpenAI embeddings with adaptive batching."""
         if not texts:
             return []
         
         if batch_size is None:
-            batch_size = min(Config.DEFAULT_BATCH_SIZE, 1000)  # OpenAI limit
+            batch_size = Config.get_adaptive_batch_size(len(texts))
         
         all_embeddings = []
+        total_batches = (len(texts) + batch_size - 1) // batch_size
         
         try:
-            # Process in batches using OpenAI
+            # Process in batches using OpenAI with adaptive delays
             for i in range(0, len(texts), batch_size):
                 batch = texts[i:i + batch_size]
+                current_batch_num = i // batch_size + 1
                 
-                # Use OpenAI embeddings API
-                response = self.openai_client.embeddings.create(
-                    model="text-embedding-3-small",  # Latest OpenAI embedding model
-                    input=batch,
-                    encoding_format="float"
+                # Get embeddings for this batch with retries
+                batch_embeddings = self._get_batch_embeddings_with_retry(
+                    batch, current_batch_num, total_batches
                 )
                 
-                # Extract embeddings from response
-                embeddings = [data.embedding for data in response.data]
-                
-                if embeddings and len(embeddings) == len(batch):
-                    all_embeddings.extend(embeddings)
+                if batch_embeddings and len(batch_embeddings) == len(batch):
+                    all_embeddings.extend(batch_embeddings)
+                    print(f"   ✓ Batch {current_batch_num}/{total_batches} completed ({len(batch_embeddings)} embeddings)")
                 else:
-                    logger.warning(f"Unexpected embedding result format for batch {i}")
+                    logger.warning(f"Batch {current_batch_num} failed, using fallback embeddings")
                     # Add zero embeddings as fallback (1536 dimensions for OpenAI)
                     all_embeddings.extend([[0.0] * 1536 for _ in batch])
                 
-                # Small delay to avoid rate limiting
+                # Memory management - force garbage collection periodically
+                if current_batch_num % Config.GC_EVERY_N_BATCHES == 0:
+                    import gc
+                    gc.collect()
+                    if Config.IS_RENDER:
+                        print(f"   🧹 Memory cleanup after batch {current_batch_num}")
+                
+                # Adaptive delay based on environment and progress
                 if i + batch_size < len(texts):
-                    time.sleep(0.1)
+                    delay = Config.get_adaptive_delay(current_batch_num, total_batches)
+                    time.sleep(delay)
             
             return all_embeddings
             
@@ -531,6 +537,66 @@ Title:"""
             logger.error(f"Error getting embeddings: {e}")
             # Return zero embeddings as fallback (1536 dimensions for OpenAI)
             return [[0.0] * 1536 for _ in texts]
+    
+    def _get_batch_embeddings_with_retry(self, batch: List[str], batch_num: int, total_batches: int) -> List[List[float]]:
+        """Get embeddings for a batch with retry logic and rate limiting protection."""
+        import openai
+        from requests.exceptions import RequestException, Timeout, ConnectionError
+        
+        for attempt in range(Config.MAX_RETRIES):
+            try:
+                # Use OpenAI embeddings API with timeout
+                response = self.openai_client.embeddings.create(
+                    model="text-embedding-3-small",
+                    input=batch,
+                    encoding_format="float",
+                    timeout=60  # 60 second timeout
+                )
+                
+                # Extract embeddings from response
+                embeddings = [data.embedding for data in response.data]
+                
+                if embeddings and len(embeddings) == len(batch):
+                    return embeddings
+                else:
+                    logger.warning(f"Batch {batch_num}: Unexpected embedding result format on attempt {attempt + 1}")
+                    
+            except openai.RateLimitError as e:
+                wait_time = Config.RETRY_DELAY_BASE * (2 ** attempt)  # Exponential backoff
+                if Config.IS_RENDER:
+                    wait_time *= 2  # Double wait time for Render
+                
+                print(f"   ⚠️  Batch {batch_num}: Rate limit hit, waiting {wait_time:.1f}s before retry {attempt + 1}/{Config.MAX_RETRIES}")
+                time.sleep(wait_time)
+                continue
+                
+            except (openai.APITimeoutError, Timeout) as e:
+                wait_time = Config.RETRY_DELAY_BASE * (attempt + 1)
+                print(f"   ⏱️  Batch {batch_num}: Timeout on attempt {attempt + 1}, waiting {wait_time:.1f}s")
+                time.sleep(wait_time)
+                continue
+                
+            except (openai.APIConnectionError, ConnectionError) as e:
+                wait_time = Config.RETRY_DELAY_BASE * (attempt + 1)
+                print(f"   🔗 Batch {batch_num}: Connection error on attempt {attempt + 1}, waiting {wait_time:.1f}s")
+                time.sleep(wait_time)
+                continue
+                
+            except openai.BadRequestError as e:
+                logger.error(f"Batch {batch_num}: Bad request error: {e}")
+                # Don't retry bad requests
+                break
+                
+            except Exception as e:
+                wait_time = Config.RETRY_DELAY_BASE * (attempt + 1)
+                print(f"   ❌ Batch {batch_num}: Unexpected error on attempt {attempt + 1}: {type(e).__name__}")
+                if attempt < Config.MAX_RETRIES - 1:
+                    time.sleep(wait_time)
+                continue
+        
+        # All retries failed
+        logger.error(f"Batch {batch_num}: All {Config.MAX_RETRIES} attempts failed")
+        return None
     
     def _parse_json_list(self, response: str) -> List[str]:
         """Parse JSON list from LLM response."""

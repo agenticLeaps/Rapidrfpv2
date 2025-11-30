@@ -623,7 +623,7 @@ class IndexingPipeline:
         return self.graph_manager.load_graph(filepath)
     
     def _phase_3_embedding_generation(self) -> Dict[str, Any]:
-        """Phase III: Generate embeddings for all nodes."""
+        """Phase III: Generate embeddings for all nodes with checkpointing."""
         # Get HNSW service instance
         hnsw_service = self._get_hnsw_service()
         
@@ -641,15 +641,30 @@ class IndexingPipeline:
             
             print(f"   🔢 Processing {len(all_nodes)} nodes in batches...")
             
+            # Check for existing checkpoint and resume if possible
+            checkpoint_data = self._load_embedding_checkpoint()
+            start_batch = 0
+            embeddings_generated = 0
+            
+            if checkpoint_data and Config.ENABLE_CHECKPOINTS:
+                start_batch = checkpoint_data.get('last_completed_batch', 0)
+                embeddings_generated = checkpoint_data.get('embeddings_generated', 0)
+                if start_batch > 0:
+                    print(f"   📁 Resuming from checkpoint: batch {start_batch + 1}, {embeddings_generated} embeddings done")
+            
             # Prepare texts for embedding
             texts = [node.content for node in all_nodes]
             node_ids = [node.id for node in all_nodes]
             
-            # Generate embeddings in batches
-            batch_size = Config.DEFAULT_BATCH_SIZE
-            embeddings_generated = 0
+            # Generate embeddings in batches with adaptive sizing
+            batch_size = Config.get_adaptive_batch_size(len(all_nodes))
+            total_batches = (len(texts) + batch_size - 1) // batch_size
             
-            for i in range(0, len(texts), batch_size):
+            print(f"   📊 Environment: {'Render' if Config.IS_RENDER else 'Cloud' if Config.IS_CLOUD else 'Local'}")
+            print(f"   📏 Batch size: {batch_size} (adaptive), Total batches: {total_batches}")
+            
+            for i in range(start_batch * batch_size, len(texts), batch_size):
+                current_batch_num = i // batch_size + 1
                 batch_texts = texts[i:i + batch_size]
                 batch_node_ids = node_ids[i:i + batch_size]
                 
@@ -658,9 +673,12 @@ class IndexingPipeline:
                 
                 if len(embeddings) != len(batch_texts):
                     logger.error(f"Embedding count mismatch: {len(embeddings)} != {len(batch_texts)}")
+                    # Save checkpoint even for failed batches to track progress
+                    self._save_embedding_checkpoint(current_batch_num - 1, embeddings_generated)
                     continue
                 
                 # Update nodes with embeddings and add to HNSW index
+                batch_success_count = 0
                 for node_id, embedding in zip(batch_node_ids, embeddings):
                     node = self.graph_manager.get_node(node_id)
                     if node:
@@ -678,15 +696,36 @@ class IndexingPipeline:
                             metadata=metadata
                         )
                         
-                        # Count successful embeddings (both node update and HNSW indexing)
-                        embeddings_generated += 1
-                        
-                        if not success:
+                        if success:
+                            batch_success_count += 1
+                            embeddings_generated += 1
+                        else:
                             logger.warning(f"Failed to add node {node_id} to HNSW index")
                 
-                current_batch = i//batch_size + 1
-                total_batches = (len(texts) + batch_size - 1)//batch_size
-                print(f"   ✓ Batch {current_batch}/{total_batches} completed ({len(embeddings)} embeddings)")
+                # Save checkpoint every N batches
+                if Config.ENABLE_CHECKPOINTS and current_batch_num % Config.CHECKPOINT_INTERVAL == 0:
+                    self._save_embedding_checkpoint(current_batch_num, embeddings_generated)
+                    if Config.IS_RENDER:
+                        print(f"   💾 Checkpoint saved after batch {current_batch_num}")
+                
+                print(f"   ✓ Batch {current_batch_num}/{total_batches} completed ({batch_success_count} embeddings)")
+                
+                # Memory and performance monitoring for cloud environments
+                if Config.IS_CLOUD and current_batch_num % Config.MEMORY_CHECK_INTERVAL == 0:
+                    try:
+                        import psutil
+                        memory_percent = psutil.virtual_memory().percent
+                        if memory_percent > 85:  # High memory usage warning
+                            print(f"   ⚠️  High memory usage: {memory_percent:.1f}%")
+                            import gc
+                            gc.collect()
+                    except ImportError:
+                        pass  # psutil not available, skip memory check
+            
+            # Save final checkpoint
+            if Config.ENABLE_CHECKPOINTS:
+                self._save_embedding_checkpoint(total_batches, embeddings_generated, completed=True)
+                print("   📁 Final checkpoint saved")
             
             # Save HNSW index to disk
             print("   💾 Saving HNSW index to disk...")
@@ -699,6 +738,10 @@ class IndexingPipeline:
             except Exception as e:
                 print(f"   ❌ Failed to save HNSW index: {e}")
             
+            # Clean up checkpoint file on successful completion
+            if Config.ENABLE_CHECKPOINTS:
+                self._cleanup_embedding_checkpoint()
+            
             print(f"   📈 Total: {embeddings_generated} embeddings generated and indexed")
             
             logger.info(f"Phase III completed: {embeddings_generated} embeddings generated and indexed")
@@ -706,7 +749,9 @@ class IndexingPipeline:
             return {
                 'success': True,
                 'embeddings_generated': embeddings_generated,
-                'hnsw_indexed': embeddings_generated
+                'hnsw_indexed': embeddings_generated,
+                'batch_size_used': batch_size,
+                'environment': 'render' if Config.IS_RENDER else 'cloud' if Config.IS_CLOUD else 'local'
             }
             
         except Exception as e:
@@ -1878,3 +1923,70 @@ Relationship:"""
     def get_indexing_stats(self) -> Dict[str, Any]:
         """Get statistics about the current indexed content."""
         return self.graph_manager.get_stats()
+    
+    def _get_checkpoint_path(self) -> str:
+        """Get the path for embedding checkpoint file."""
+        import os
+        os.makedirs(Config.DATA_DIR, exist_ok=True)
+        return os.path.join(Config.DATA_DIR, "embedding_checkpoint.json")
+    
+    def _load_embedding_checkpoint(self) -> Optional[Dict[str, Any]]:
+        """Load embedding generation checkpoint if it exists."""
+        if not Config.ENABLE_CHECKPOINTS:
+            return None
+        
+        checkpoint_path = self._get_checkpoint_path()
+        
+        try:
+            import json
+            import os
+            
+            if os.path.exists(checkpoint_path):
+                with open(checkpoint_path, 'r') as f:
+                    checkpoint_data = json.load(f)
+                    print(f"   📁 Found checkpoint: {checkpoint_data}")
+                    return checkpoint_data
+        except Exception as e:
+            logger.warning(f"Failed to load checkpoint: {e}")
+        
+        return None
+    
+    def _save_embedding_checkpoint(self, batch_num: int, embeddings_generated: int, completed: bool = False) -> None:
+        """Save embedding generation checkpoint."""
+        if not Config.ENABLE_CHECKPOINTS:
+            return
+        
+        checkpoint_path = self._get_checkpoint_path()
+        
+        try:
+            import json
+            import time
+            
+            checkpoint_data = {
+                'last_completed_batch': batch_num,
+                'embeddings_generated': embeddings_generated,
+                'timestamp': time.time(),
+                'environment': 'render' if Config.IS_RENDER else 'cloud' if Config.IS_CLOUD else 'local',
+                'completed': completed
+            }
+            
+            with open(checkpoint_path, 'w') as f:
+                json.dump(checkpoint_data, f, indent=2)
+                
+        except Exception as e:
+            logger.warning(f"Failed to save checkpoint: {e}")
+    
+    def _cleanup_embedding_checkpoint(self) -> None:
+        """Clean up checkpoint file after successful completion."""
+        if not Config.ENABLE_CHECKPOINTS:
+            return
+        
+        checkpoint_path = self._get_checkpoint_path()
+        
+        try:
+            import os
+            if os.path.exists(checkpoint_path):
+                os.remove(checkpoint_path)
+                print("   🧹 Checkpoint file cleaned up")
+        except Exception as e:
+            logger.warning(f"Failed to cleanup checkpoint: {e}")
