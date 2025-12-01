@@ -97,6 +97,12 @@ class LLMService:
     
     def _initialize_hf_client_with_retry(self):
         """Initialize HuggingFace client with retry logic."""
+        # Skip HF if configured to use OpenAI embeddings only
+        if Config.USE_OPENAI_EMBEDDINGS_ONLY:
+            logger.info("Skipping HuggingFace client - using OpenAI embeddings only")
+            self.embedding_client = None
+            return
+            
         for attempt in range(Config.HF_CLIENT_MAX_RETRIES):
             try:
                 logger.info(f"Attempting to initialize HF client (attempt {attempt + 1}/{Config.HF_CLIENT_MAX_RETRIES})")

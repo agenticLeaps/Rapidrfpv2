@@ -3,6 +3,7 @@ import uuid
 from typing import List, Dict, Any, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
+import threading
 
 from ..graph.graph_manager import GraphManager
 from ..graph.node_types import Node, Edge, NodeType
@@ -97,17 +98,48 @@ class IndexingPipeline:
         failed_chunks = 0
         
         try:
-            # Process chunks sequentially for now (can be parallelized later)
-            for chunk in processed_doc.chunks:
-                success = self._process_chunk(chunk)
-                if success:
-                    successful_chunks += 1
-                else:
-                    failed_chunks += 1
+            if Config.ENABLE_PARALLEL_PROCESSING and total_chunks >= Config.MAX_CONCURRENT_CHUNKS:
+                # Parallel processing for better performance
+                logger.info(f"🚀 Using parallel processing with {Config.MAX_CONCURRENT_CHUNKS} workers")
                 
-                # Log progress
-                if (successful_chunks + failed_chunks) % 10 == 0:
-                    logger.info(f"Processed {successful_chunks + failed_chunks}/{total_chunks} chunks")
+                # Thread-safe counters
+                success_lock = threading.Lock()
+                
+                with ThreadPoolExecutor(max_workers=Config.MAX_CONCURRENT_CHUNKS) as executor:
+                    # Submit all chunk processing tasks
+                    future_to_chunk = {executor.submit(self._process_chunk, chunk): chunk for chunk in processed_doc.chunks}
+                    
+                    # Process completed tasks
+                    for i, future in enumerate(as_completed(future_to_chunk)):
+                        try:
+                            success = future.result()
+                            with success_lock:
+                                if success:
+                                    successful_chunks += 1
+                                else:
+                                    failed_chunks += 1
+                                
+                                # Log progress
+                                total_processed = successful_chunks + failed_chunks
+                                if total_processed % 10 == 0 or total_processed == total_chunks:
+                                    logger.info(f"Processed {total_processed}/{total_chunks} chunks (parallel)")
+                        except Exception as e:
+                            logger.error(f"Error processing chunk: {e}")
+                            with success_lock:
+                                failed_chunks += 1
+            else:
+                # Sequential processing (fallback or small datasets)
+                logger.info("🔄 Using sequential processing")
+                for chunk in processed_doc.chunks:
+                    success = self._process_chunk(chunk)
+                    if success:
+                        successful_chunks += 1
+                    else:
+                        failed_chunks += 1
+                    
+                    # Log progress
+                    if (successful_chunks + failed_chunks) % 10 == 0:
+                        logger.info(f"Processed {successful_chunks + failed_chunks}/{total_chunks} chunks")
             
             logger.info(f"Phase I completed: {successful_chunks} successful, {failed_chunks} failed")
             

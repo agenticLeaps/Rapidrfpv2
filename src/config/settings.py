@@ -82,6 +82,10 @@ class Config:
     LLM_BATCH_SIZE = get_int_config("LLM_BATCH_SIZE", 8)              # Batch LLM calls for efficiency
     MAX_CONCURRENT_CHUNKS = get_int_config("MAX_CONCURRENT_CHUNKS", 4)  # Conservative parallel processing
     PARALLEL_EMBEDDING_BATCH = get_int_config("PARALLEL_EMBEDDING_BATCH", 16)  # Batch embeddings
+    ENABLE_PARALLEL_PROCESSING = get_bool_config("ENABLE_PARALLEL_PROCESSING", True)  # Enable parallel chunk processing
+    
+    # Embedding Optimization
+    USE_OPENAI_EMBEDDINGS_ONLY = get_bool_config("USE_OPENAI_EMBEDDINGS_ONLY", False)  # Skip HF embeddings
     
     # Storage
     DATA_DIR = get_config_value("DATA_DIR", "data")
