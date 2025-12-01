@@ -57,26 +57,31 @@ class Config:
     HF_CLIENT_CONNECT_TIMEOUT = get_int_config("HF_CLIENT_CONNECT_TIMEOUT", 10)
     HF_CLIENT_MAX_RETRIES = get_int_config("HF_CLIENT_MAX_RETRIES", 3)
     
-    # Document Processing Settings
-    CHUNK_SIZE = get_int_config("CHUNK_SIZE", 512)
-    CHUNK_OVERLAP = get_int_config("CHUNK_OVERLAP", 50)
+    # Document Processing Settings (Optimized for speed)
+    CHUNK_SIZE = get_int_config("CHUNK_SIZE", 1536)  # Increased from 512 for 3x fewer chunks
+    CHUNK_OVERLAP = get_int_config("CHUNK_OVERLAP", 75)   # Proportional increase
     
-    # Graph Settings
-    MAX_ENTITIES_PER_CHUNK = get_int_config("MAX_ENTITIES_PER_CHUNK", 20)
-    MAX_RELATIONSHIPS_PER_CHUNK = get_int_config("MAX_RELATIONSHIPS_PER_CHUNK", 15)
+    # Graph Settings (Adjusted for larger chunks)
+    MAX_ENTITIES_PER_CHUNK = get_int_config("MAX_ENTITIES_PER_CHUNK", 35)     # Increased for larger chunks
+    MAX_RELATIONSHIPS_PER_CHUNK = get_int_config("MAX_RELATIONSHIPS_PER_CHUNK", 25)  # Increased for larger chunks
     IMPORTANT_ENTITY_PERCENTAGE = get_float_config("IMPORTANT_ENTITY_PERCENTAGE", 0.2)
     
     # Community Detection Settings
     LEIDEN_RESOLUTION = get_float_config("LEIDEN_RESOLUTION", 1.0)
     LEIDEN_RANDOM_STATE = get_int_config("LEIDEN_RANDOM_STATE", 42)
     
-    # LLM Generation Settings
-    DEFAULT_MAX_LENGTH = get_int_config("DEFAULT_MAX_LENGTH", 1024)
+    # LLM Generation Settings (Optimized)
+    DEFAULT_MAX_LENGTH = get_int_config("DEFAULT_MAX_LENGTH", 1536)  # Increased for better context with larger chunks
     DEFAULT_TEMPERATURE = get_float_config("DEFAULT_TEMPERATURE", 0.7)
     DEFAULT_TOP_P = get_float_config("DEFAULT_TOP_P", 0.9)
     
-    # Batch Processing
-    DEFAULT_BATCH_SIZE = get_int_config("DEFAULT_BATCH_SIZE", 16)
+    # Batch Processing (Optimized for performance)
+    DEFAULT_BATCH_SIZE = get_int_config("DEFAULT_BATCH_SIZE", 32)  # Increased from 16 to 32
+    
+    # Performance Optimization Settings
+    LLM_BATCH_SIZE = get_int_config("LLM_BATCH_SIZE", 8)              # Batch LLM calls for efficiency
+    MAX_CONCURRENT_CHUNKS = get_int_config("MAX_CONCURRENT_CHUNKS", 4)  # Conservative parallel processing
+    PARALLEL_EMBEDDING_BATCH = get_int_config("PARALLEL_EMBEDDING_BATCH", 16)  # Batch embeddings
     
     # Storage
     DATA_DIR = get_config_value("DATA_DIR", "data")
