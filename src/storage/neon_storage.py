@@ -30,25 +30,55 @@ class NeonDBStorage:
         
     async def _get_connection_pool(self):
         """Get or create database connection pool"""
-        if self._connection_pool is None:
+        if self._connection_pool is None or self._connection_pool.is_closing():
+            # Close existing pool if it's in a bad state
+            if self._connection_pool and not self._connection_pool.is_closing():
+                try:
+                    await self._connection_pool.close()
+                except Exception:
+                    pass
+            
             self._connection_pool = await asyncpg.create_pool(
                 self.db_url,
-                min_size=2,
-                max_size=10,
-                max_inactive_connection_lifetime=300.0,
-                command_timeout=60
+                min_size=1,
+                max_size=5,  # Reduced to avoid connection conflicts
+                max_inactive_connection_lifetime=120.0,  # Shorter timeout
+                command_timeout=120,  # Increased for large operations
+                max_queries=10000,
+                max_cached_statement_lifetime=300
             )
+            logger.info("✅ Database connection pool created")
         return self._connection_pool
         
     async def _get_connection(self):
-        """Get database connection from pool"""
-        pool = await self._get_connection_pool()
-        return await pool.acquire()
+        """Get database connection from pool with retry logic"""
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                pool = await self._get_connection_pool()
+                conn = await pool.acquire()
+                return conn
+            except Exception as e:
+                logger.warning(f"Connection attempt {attempt + 1}/{max_retries} failed: {e}")
+                if attempt == max_retries - 1:
+                    # Last attempt - try direct connection
+                    logger.info("Falling back to direct connection")
+                    return await asyncpg.connect(self.db_url)
+                await asyncio.sleep(1)
         
     async def _release_connection(self, conn):
         """Release connection back to pool"""
-        if self._connection_pool:
-            await self._connection_pool.release(conn)
+        try:
+            if self._connection_pool and not self._connection_pool.is_closing():
+                await self._connection_pool.release(conn)
+            else:
+                await conn.close()
+        except Exception as e:
+            logger.warning(f"Error releasing connection: {e}")
+            try:
+                await conn.close()
+            except Exception:
+                pass
     
     async def _ensure_tables_exist(self):
         """Ensure NodeRAG tables exist in database"""
@@ -119,60 +149,73 @@ class NeonDBStorage:
         return asyncio.run(self._store_noderag_data_async(org_id, file_id, user_id, pipeline))
     
     async def _store_noderag_data_async(self, org_id: str, file_id: str, user_id: str, pipeline) -> Dict[str, Any]:
-        """Async implementation of store_noderag_data with optimized batch operations"""
+        """Async implementation of store_noderag_data with optimized batch operations and improved error handling"""
         start_time = time.time()
         stored_embeddings = 0
         stored_graphs = 0
         all_nodes = []
+        conn = None
         
         try:
             await self._ensure_tables_exist()
-            conn = await self._get_connection()
             
-            try:
-                # Start transaction
-                async with conn.transaction():
+            # Get connection with retry logic
+            conn = await self._get_connection()
+            logger.info(f"📡 Got database connection for storage")
+            
+            # Use a more robust transaction approach
+            async with conn.transaction(isolation='read_committed'):
+                logger.info(f"🔒 Started transaction for file_id={file_id}")
+                
+                # 1. Store graph data
+                graph_data = pickle.dumps(pipeline.graph_manager.graph)
+                graph_stats = pipeline.graph_manager.get_stats()
+                
+                await conn.execute("""
+                    INSERT INTO noderag_graphs 
+                    (file_id, org_id, user_id, graph_data, stats)
+                    VALUES ($1, $2, $3, $4, $5)
+                    ON CONFLICT (org_id, file_id) 
+                    DO UPDATE SET 
+                        graph_data = EXCLUDED.graph_data,
+                        stats = EXCLUDED.stats,
+                        updated_at = CURRENT_TIMESTAMP
+                """, file_id, org_id, user_id, graph_data, json.dumps(graph_stats))
+                
+                stored_graphs = 1
+                logger.info(f"✅ Stored graph data for file_id={file_id}")
+                
+                # 2. Collect all nodes first
+                for node_type in [NodeType.SEMANTIC, NodeType.ENTITY, NodeType.RELATIONSHIP, 
+                                 NodeType.ATTRIBUTE, NodeType.HIGH_LEVEL, NodeType.OVERVIEW]:
+                    try:
+                        nodes = pipeline.graph_manager.get_nodes_by_type(node_type)
+                        all_nodes.extend(nodes)
+                    except Exception as e:
+                        logger.warning(f"Could not get nodes of type {node_type}: {e}")
+                
+                logger.info(f"📊 Found {len(all_nodes)} nodes to store")
+                
+                # 3. Clear existing embeddings for this file (single operation)
+                delete_start = time.time()
+                await conn.execute(
+                    "DELETE FROM noderag_embeddings WHERE org_id = $1 AND file_id = $2",
+                    org_id, file_id
+                )
+                logger.info(f"🗑️ Cleared existing embeddings in {time.time() - delete_start:.2f}s")
+                
+                # 4. Process embeddings in smaller chunks to avoid memory issues
+                chunk_size = 500  # Process in chunks to avoid overwhelming the connection
+                total_chunks = (len(all_nodes) + chunk_size - 1) // chunk_size
+                
+                for chunk_idx in range(0, len(all_nodes), chunk_size):
+                    chunk_start = chunk_idx
+                    chunk_end = min(chunk_idx + chunk_size, len(all_nodes))
+                    chunk_nodes = all_nodes[chunk_start:chunk_end]
                     
-                    # 1. Store graph data
-                    graph_data = pickle.dumps(pipeline.graph_manager.graph)
-                    graph_stats = pipeline.graph_manager.get_stats()
-                    
-                    await conn.execute("""
-                        INSERT INTO noderag_graphs 
-                        (file_id, org_id, user_id, graph_data, stats)
-                        VALUES ($1, $2, $3, $4, $5)
-                        ON CONFLICT (org_id, file_id) 
-                        DO UPDATE SET 
-                            graph_data = EXCLUDED.graph_data,
-                            stats = EXCLUDED.stats,
-                            updated_at = CURRENT_TIMESTAMP
-                    """, file_id, org_id, user_id, graph_data, json.dumps(graph_stats))
-                    
-                    stored_graphs = 1
-                    logger.info(f"✅ Stored graph data for file_id={file_id}")
-                    
-                    # 2. Collect all nodes first
-                    for node_type in [NodeType.SEMANTIC, NodeType.ENTITY, NodeType.RELATIONSHIP, 
-                                     NodeType.ATTRIBUTE, NodeType.HIGH_LEVEL, NodeType.OVERVIEW]:
-                        try:
-                            nodes = pipeline.graph_manager.get_nodes_by_type(node_type)
-                            all_nodes.extend(nodes)
-                        except Exception as e:
-                            logger.warning(f"Could not get nodes of type {node_type}: {e}")
-                    
-                    logger.info(f"📊 Found {len(all_nodes)} nodes to store")
-                    
-                    # 3. Clear existing embeddings for this file (single operation)
-                    delete_start = time.time()
-                    await conn.execute(
-                        "DELETE FROM noderag_embeddings WHERE org_id = $1 AND file_id = $2",
-                        org_id, file_id
-                    )
-                    logger.info(f"🗑️ Cleared existing embeddings in {time.time() - delete_start:.2f}s")
-                    
-                    # 4. Prepare batch data for embeddings
+                    # Prepare batch data for this chunk
                     batch_data = []
-                    for i, node in enumerate(all_nodes):
+                    for i, node in enumerate(chunk_nodes):
                         if hasattr(node, 'embeddings') and node.embeddings is not None:
                             try:
                                 # Convert embedding to string format for vector type
@@ -192,7 +235,7 @@ class NeonDBStorage:
                                     org_id,
                                     file_id,
                                     user_id,
-                                    i,  # chunk_index
+                                    chunk_start + i,  # chunk_index
                                     json.dumps(graph_metadata)
                                 ))
                                 
@@ -200,11 +243,10 @@ class NeonDBStorage:
                                 logger.error(f"Error preparing embedding for node {node.id}: {e}")
                                 continue
                     
-                    # 5. Batch insert embeddings (much faster than individual inserts)
+                    # Insert this chunk
                     if batch_data:
-                        batch_start = time.time()
+                        chunk_batch_start = time.time()
                         
-                        # Use executemany for batch insert with conflict resolution
                         await conn.executemany("""
                             INSERT INTO noderag_embeddings 
                             (node_id, node_type, content, embedding, org_id, file_id, user_id, 
@@ -222,15 +264,13 @@ class NeonDBStorage:
                                 updated_at = CURRENT_TIMESTAMP
                         """, batch_data)
                         
-                        stored_embeddings = len(batch_data)
-                        batch_time = time.time() - batch_start
-                        logger.info(f"✅ Batch inserted {stored_embeddings} embeddings in {batch_time:.2f}s ({stored_embeddings/batch_time:.1f} ops/sec)")
-                    
-                    total_time = time.time() - start_time
-                    logger.info(f"✅ Total storage time: {total_time:.2f}s for file_id={file_id}")
+                        stored_embeddings += len(batch_data)
+                        chunk_time = time.time() - chunk_batch_start
+                        chunk_num = (chunk_idx // chunk_size) + 1
+                        logger.info(f"✅ DB chunk {chunk_num}/{total_chunks}: {len(batch_data)} embeddings in {chunk_time:.2f}s")
                 
-            finally:
-                await self._release_connection(conn)
+                total_time = time.time() - start_time
+                logger.info(f"✅ Transaction completed: {stored_embeddings} embeddings stored in {total_time:.2f}s")
             
             return {
                 "success": True,
@@ -249,6 +289,12 @@ class NeonDBStorage:
                 "graphs_stored": stored_graphs,
                 "storage_time_seconds": time.time() - start_time
             }
+        finally:
+            if conn:
+                try:
+                    await self._release_connection(conn)
+                except Exception as e:
+                    logger.warning(f"Error releasing connection: {e}")
     
     def search_noderag_data(self, org_id: str, query: str, top_k: int = 10, filters: Dict = None) -> List[Dict]:
         """Search NodeRAG embeddings"""
