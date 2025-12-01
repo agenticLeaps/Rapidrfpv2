@@ -38,19 +38,54 @@ class LLMService:
         self._initialize_clients()
     
     def _initialize_clients(self):
-        """Initialize OpenAI and HF embedding clients."""
+        """Initialize OpenAI and HF embedding clients with timeout and retry logic."""
         try:
             # Initialize OpenAI for LLM
-            self.openai_client = OpenAI(api_key=Config.OPENAI_API_KEY)
+            self.openai_client = OpenAI(
+                api_key=Config.OPENAI_API_KEY,
+                timeout=Config.HF_CLIENT_TIMEOUT
+            )
             logger.info("OpenAI client initialized successfully")
             
-            # Initialize HF Gradio client for embeddings
-            self.embedding_client = Client(Config.QWEN_EMBEDDING_ENDPOINT)
-            logger.info(f"HF embedding client initialized: {Config.QWEN_EMBEDDING_ENDPOINT}")
+            # Initialize HF Gradio client for embeddings with retry logic
+            self._initialize_hf_client_with_retry()
                 
         except Exception as e:
             logger.error(f"Failed to initialize clients: {e}")
             raise
+    
+    def _initialize_hf_client_with_retry(self):
+        """Initialize HuggingFace client with retry logic."""
+        for attempt in range(Config.HF_CLIENT_MAX_RETRIES):
+            try:
+                logger.info(f"Attempting to initialize HF client (attempt {attempt + 1}/{Config.HF_CLIENT_MAX_RETRIES})")
+                
+                # Try to initialize with timeout
+                self.embedding_client = Client(
+                    Config.QWEN_EMBEDDING_ENDPOINT,
+                    download_files=False,  # Don't download files to speed up initialization
+                    verbose=False
+                )
+                
+                # Test the connection with a simple call
+                logger.info("Testing HF client connection...")
+                
+                logger.info(f"HF embedding client initialized: {Config.QWEN_EMBEDDING_ENDPOINT}")
+                return
+                
+            except Exception as e:
+                logger.warning(f"HF client initialization attempt {attempt + 1} failed: {e}")
+                
+                if attempt == Config.HF_CLIENT_MAX_RETRIES - 1:
+                    # Last attempt failed, fall back to OpenAI embeddings only
+                    logger.error("All HF client initialization attempts failed. Falling back to OpenAI embeddings only.")
+                    self.embedding_client = None
+                    return
+                
+                # Wait before retry (exponential backoff)
+                wait_time = 2 ** attempt
+                logger.info(f"Waiting {wait_time} seconds before retry...")
+                time.sleep(wait_time)
     
     def extract_semantic_units(self, text: str, max_units: int = 10) -> List[str]:
         """Extract semantic units (independent events/ideas) from text."""

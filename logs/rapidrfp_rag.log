@@ -2611,3 +2611,518 @@ Description: The text data mentions the concept of a Coitonic Af...
 2025-11-26 04:39:27,413 - src.storage.neon_storage - INFO - ✅ Stored 4 embeddings for file_id=ade9b512-6c96-4f8e-b615-d9f190012147
 2025-11-26 04:39:28,452 - api_service - INFO - ✅ Webhook sent successfully: completed
 2025-11-26 04:39:28,453 - api_service - INFO - ✅ NodeRAG processing completed for file_id=ade9b512-6c96-4f8e-b615-d9f190012147
+2025-12-01 15:26:52,867 - __main__ - INFO - ✅ Environment check passed
+2025-12-01 15:26:52,867 - __main__ - INFO - 🌐 Starting server on 0.0.0.0:5001 (debug=False)
+2025-12-01 15:26:52,874 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://10.50.66.245:5001
+2025-12-01 15:26:52,874 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-12-01 15:27:27,356 - api_service - INFO - 🚀 Starting NodeRAG processing: file_id=6444af06-d71f-451e-b706-55565e6bacf3, org_id=12aff77d-e387-4f4b-93bd-b294756dd96f, chunks=16
+2025-12-01 15:27:27,833 - api_service - INFO - ✅ Webhook sent successfully: processing
+2025-12-01 15:27:27,849 - werkzeug - INFO - 127.0.0.1 - - [01/Dec/2025 15:27:27] "[35m[1mPOST /api/v1/process-document HTTP/1.1[0m" 202 -
+2025-12-01 15:27:27,881 - src.llm.llm_service - INFO - OpenAI client initialized successfully
+2025-12-01 15:27:28,559 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:27:28,789 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings/runtime "HTTP/1.1 200 OK"
+2025-12-01 15:27:29,771 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/config "HTTP/1.1 200 OK"
+2025-12-01 15:27:30,696 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/info?serialize=False "HTTP/1.1 200 OK"
+2025-12-01 15:27:30,699 - src.llm.llm_service - INFO - HF embedding client initialized: mahendraVarmaGokaraju/qwen3-embeddings
+2025-12-01 15:27:30,699 - src.document_processing.llamaparse_service - INFO - LlamaParse service initialized
+2025-12-01 15:27:30,699 - src.document_processing.llamaparse_service - INFO - LlamaParse integration enabled
+2025-12-01 15:27:30,915 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/telemetry/py_client/initiated "HTTP/1.1 200 OK"
+2025-12-01 15:27:31,013 - api_service - INFO - ✅ Webhook sent successfully: phase1_started
+2025-12-01 15:27:31,016 - api_service - INFO - 🔄 Phase 1: Graph Decomposition
+2025-12-01 15:27:31,016 - src.document_processing.indexing_pipeline - INFO - Starting Phase I: Graph Decomposition
+2025-12-01 15:27:31,615 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/heartbeat/bb34a754-7e74-4f6b-bbaa-9f01372741f0 "HTTP/1.1 200 OK"
+2025-12-01 15:27:33,495 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:27:35,567 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:27:39,258 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:27:40,012 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:27:42,309 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:27:43,678 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:27:45,166 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:27:47,344 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:27:49,562 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:27:50,533 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:27:53,717 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:27:56,921 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:27:57,719 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:00,167 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:02,304 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:03,258 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:05,846 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:07,966 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:09,001 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:10,237 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:13,054 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:14,307 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:16,386 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:18,752 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:20,127 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:21,250 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:23,973 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:24,963 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:26,080 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:29,494 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:29,496 - src.document_processing.indexing_pipeline - INFO - Processed 10/16 chunks
+2025-12-01 15:28:31,343 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:34,049 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:37,366 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:38,366 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:39,919 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:43,885 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:44,993 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:45,975 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:49,308 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:50,127 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:52,597 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:53,505 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:54,611 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:55,999 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:28:58,892 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:00,045 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:01,904 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:05,222 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:05,227 - src.document_processing.indexing_pipeline - INFO - Phase I completed: 16 successful, 0 failed
+2025-12-01 15:29:05,706 - api_service - INFO - ✅ Webhook sent successfully: phase2_started
+2025-12-01 15:29:05,707 - api_service - INFO - 🔄 Phase 2: Graph Augmentation
+2025-12-01 15:29:05,707 - src.document_processing.indexing_pipeline - INFO - Starting Phase II: Graph Augmentation
+2025-12-01 15:29:05,790 - src.document_processing.indexing_pipeline - INFO - Identified 20 important entities
+2025-12-01 15:29:07,462 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:08,606 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:09,913 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:12,066 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:13,522 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:15,461 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:16,956 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:20,574 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:22,449 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:23,819 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:25,680 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:28,042 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:29,259 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:30,370 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:31,722 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:33,833 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:35,872 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:36,935 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:39,015 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:40,743 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:40,752 - src.document_processing.indexing_pipeline - INFO - Created 20 attribute nodes
+2025-12-01 15:29:40,780 - src.graph.graph_manager - INFO - Detected 14 communities
+2025-12-01 15:29:44,355 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:44,847 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:47,547 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:48,144 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:52,483 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:53,036 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:55,448 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:56,017 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:29:59,969 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:30:00,580 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:30:06,067 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:30:06,574 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:30:08,669 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:30:09,232 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:30:14,398 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:30:15,225 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:30:18,895 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:30:19,488 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:30:21,927 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:30:22,426 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:30:26,670 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:30:27,326 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:30:33,433 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:30:33,994 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:30:38,868 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:30:39,980 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:30:45,260 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:30:45,880 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:30:45,882 - src.document_processing.indexing_pipeline - INFO - Created 14 high-level nodes and 14 overview nodes
+2025-12-01 15:30:46,383 - api_service - INFO - ✅ Webhook sent successfully: phase3_started
+2025-12-01 15:30:46,387 - api_service - INFO - 🔄 Phase 3: Embedding Generation
+2025-12-01 15:30:46,387 - src.document_processing.indexing_pipeline - INFO - Starting Phase III: Embedding Generation
+2025-12-01 15:30:46,393 - src.vector.hnsw_service - INFO - HNSW service initialized: dim=1536, space=cosine
+2025-12-01 15:30:46,455 - src.vector.hnsw_service - INFO - HNSW index loaded from data/processed/hnsw_index, 8234 elements
+2025-12-01 15:30:46,455 - src.document_processing.indexing_pipeline - INFO - Loaded existing HNSW index with 8234 vectors
+2025-12-01 15:30:46,455 - src.document_processing.indexing_pipeline - INFO - HNSW service initialized: True
+2025-12-01 15:30:46,456 - src.document_processing.indexing_pipeline - INFO - Generating embeddings for 331 nodes
+2025-12-01 15:30:47,236 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:30:48,407 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 1/21
+2025-12-01 15:30:50,373 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:30:51,359 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 2/21
+2025-12-01 15:30:52,293 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:30:53,438 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 3/21
+2025-12-01 15:30:54,373 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:30:55,345 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 4/21
+2025-12-01 15:30:56,744 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:30:57,751 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 5/21
+2025-12-01 15:30:58,579 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:30:59,709 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 6/21
+2025-12-01 15:31:01,084 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:31:02,194 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 7/21
+2025-12-01 15:31:03,746 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:31:04,902 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 8/21
+2025-12-01 15:31:05,662 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:31:06,827 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 9/21
+2025-12-01 15:31:08,052 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:31:09,266 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 10/21
+2025-12-01 15:31:09,958 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:31:11,069 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 11/21
+2025-12-01 15:31:12,776 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:31:13,887 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 12/21
+2025-12-01 15:31:14,494 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:31:15,574 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 13/21
+2025-12-01 15:31:16,434 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:31:17,461 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 14/21
+2025-12-01 15:31:18,202 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:31:19,312 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 15/21
+2025-12-01 15:31:19,996 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:31:21,192 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 16/21
+2025-12-01 15:31:22,387 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:31:23,447 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 17/21
+2025-12-01 15:31:25,217 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:31:26,209 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 18/21
+2025-12-01 15:31:26,828 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:31:27,770 - src.vector.hnsw_service - WARNING - Node H_community_0 already exists in index
+2025-12-01 15:31:27,770 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_0 to HNSW index
+2025-12-01 15:31:27,771 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 19/21
+2025-12-01 15:31:28,545 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:31:29,450 - src.vector.hnsw_service - WARNING - Node H_community_1 already exists in index
+2025-12-01 15:31:29,451 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_1 to HNSW index
+2025-12-01 15:31:29,451 - src.vector.hnsw_service - WARNING - Node H_community_2 already exists in index
+2025-12-01 15:31:29,451 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_2 to HNSW index
+2025-12-01 15:31:29,451 - src.vector.hnsw_service - WARNING - Node H_community_3 already exists in index
+2025-12-01 15:31:29,451 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_3 to HNSW index
+2025-12-01 15:31:29,451 - src.vector.hnsw_service - WARNING - Node H_community_4 already exists in index
+2025-12-01 15:31:29,451 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_4 to HNSW index
+2025-12-01 15:31:29,451 - src.vector.hnsw_service - WARNING - Node H_community_5 already exists in index
+2025-12-01 15:31:29,451 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_5 to HNSW index
+2025-12-01 15:31:29,451 - src.vector.hnsw_service - WARNING - Node H_community_6 already exists in index
+2025-12-01 15:31:29,451 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_6 to HNSW index
+2025-12-01 15:31:29,451 - src.vector.hnsw_service - WARNING - Node H_community_7 already exists in index
+2025-12-01 15:31:29,451 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_7 to HNSW index
+2025-12-01 15:31:29,451 - src.vector.hnsw_service - WARNING - Node H_community_8 already exists in index
+2025-12-01 15:31:29,451 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_8 to HNSW index
+2025-12-01 15:31:29,451 - src.vector.hnsw_service - WARNING - Node H_community_9 already exists in index
+2025-12-01 15:31:29,451 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_9 to HNSW index
+2025-12-01 15:31:29,451 - src.vector.hnsw_service - WARNING - Node H_community_10 already exists in index
+2025-12-01 15:31:29,451 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_10 to HNSW index
+2025-12-01 15:31:29,451 - src.vector.hnsw_service - WARNING - Node H_community_11 already exists in index
+2025-12-01 15:31:29,451 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_11 to HNSW index
+2025-12-01 15:31:29,451 - src.vector.hnsw_service - WARNING - Node H_community_12 already exists in index
+2025-12-01 15:31:29,451 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_12 to HNSW index
+2025-12-01 15:31:29,451 - src.vector.hnsw_service - WARNING - Node H_community_13 already exists in index
+2025-12-01 15:31:29,451 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_13 to HNSW index
+2025-12-01 15:31:29,451 - src.vector.hnsw_service - WARNING - Node O_community_0 already exists in index
+2025-12-01 15:31:29,451 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_0 to HNSW index
+2025-12-01 15:31:29,451 - src.vector.hnsw_service - WARNING - Node O_community_1 already exists in index
+2025-12-01 15:31:29,451 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_1 to HNSW index
+2025-12-01 15:31:29,451 - src.vector.hnsw_service - WARNING - Node O_community_2 already exists in index
+2025-12-01 15:31:29,451 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_2 to HNSW index
+2025-12-01 15:31:29,451 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 20/21
+2025-12-01 15:31:30,187 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:31:30,429 - src.vector.hnsw_service - WARNING - Node O_community_3 already exists in index
+2025-12-01 15:31:30,429 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_3 to HNSW index
+2025-12-01 15:31:30,429 - src.vector.hnsw_service - WARNING - Node O_community_4 already exists in index
+2025-12-01 15:31:30,429 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_4 to HNSW index
+2025-12-01 15:31:30,429 - src.vector.hnsw_service - WARNING - Node O_community_5 already exists in index
+2025-12-01 15:31:30,429 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_5 to HNSW index
+2025-12-01 15:31:30,429 - src.vector.hnsw_service - WARNING - Node O_community_6 already exists in index
+2025-12-01 15:31:30,429 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_6 to HNSW index
+2025-12-01 15:31:30,429 - src.vector.hnsw_service - WARNING - Node O_community_7 already exists in index
+2025-12-01 15:31:30,429 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_7 to HNSW index
+2025-12-01 15:31:30,429 - src.vector.hnsw_service - WARNING - Node O_community_8 already exists in index
+2025-12-01 15:31:30,429 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_8 to HNSW index
+2025-12-01 15:31:30,430 - src.vector.hnsw_service - WARNING - Node O_community_9 already exists in index
+2025-12-01 15:31:30,430 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_9 to HNSW index
+2025-12-01 15:31:30,430 - src.vector.hnsw_service - WARNING - Node O_community_10 already exists in index
+2025-12-01 15:31:30,430 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_10 to HNSW index
+2025-12-01 15:31:30,430 - src.vector.hnsw_service - WARNING - Node O_community_11 already exists in index
+2025-12-01 15:31:30,430 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_11 to HNSW index
+2025-12-01 15:31:30,430 - src.vector.hnsw_service - WARNING - Node O_community_12 already exists in index
+2025-12-01 15:31:30,430 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_12 to HNSW index
+2025-12-01 15:31:30,430 - src.vector.hnsw_service - WARNING - Node O_community_13 already exists in index
+2025-12-01 15:31:30,430 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_13 to HNSW index
+2025-12-01 15:31:30,430 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 21/21
+2025-12-01 15:31:30,550 - src.vector.hnsw_service - INFO - HNSW index saved to data/processed/hnsw_index
+2025-12-01 15:31:30,550 - src.document_processing.indexing_pipeline - INFO - HNSW index saved: True
+2025-12-01 15:31:30,551 - src.document_processing.indexing_pipeline - INFO - Phase III completed: 303 embeddings generated and indexed
+2025-12-01 15:31:30,551 - api_service - INFO - 💾 Storing in NeonDB
+2025-12-01 15:31:30,581 - src.llm.llm_service - INFO - OpenAI client initialized successfully
+2025-12-01 15:31:30,897 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:31:31,151 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings/runtime "HTTP/1.1 200 OK"
+2025-12-01 15:31:37,004 - src.llm.llm_service - ERROR - Failed to initialize clients: The read operation timed out
+2025-12-01 15:31:37,004 - api_service - ERROR - ❌ Processing pipeline error: The read operation timed out
+2025-12-01 15:31:37,508 - api_service - INFO - ✅ Webhook sent successfully: failed
+2025-12-01 15:39:32,580 - __main__ - INFO - ✅ Environment check passed
+2025-12-01 15:39:32,580 - __main__ - INFO - 🌐 Starting server on 0.0.0.0:5001 (debug=False)
+2025-12-01 15:39:32,587 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://10.50.66.245:5001
+2025-12-01 15:39:32,587 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-12-01 15:39:40,785 - werkzeug - INFO - 127.0.0.1 - - [01/Dec/2025 15:39:40] "[33mGET /v1/health HTTP/1.1[0m" 404 -
+2025-12-01 15:39:55,999 - __main__ - INFO - ✅ Environment check passed
+2025-12-01 15:39:56,000 - __main__ - INFO - 🌐 Starting server on 0.0.0.0:5001 (debug=False)
+2025-12-01 15:40:18,140 - __main__ - INFO - ✅ Environment check passed
+2025-12-01 15:40:18,140 - __main__ - INFO - 🌐 Starting server on 0.0.0.0:5001 (debug=False)
+2025-12-01 15:40:18,146 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://10.50.66.245:5001
+2025-12-01 15:40:18,146 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-12-01 15:40:23,426 - api_service - INFO - 🚀 Starting NodeRAG processing: file_id=32272b98-730b-44ac-918a-c4cdf8430cb9, org_id=12aff77d-e387-4f4b-93bd-b294756dd96f, chunks=16
+2025-12-01 15:40:23,893 - api_service - INFO - ✅ Webhook sent successfully: processing
+2025-12-01 15:40:23,898 - werkzeug - INFO - 127.0.0.1 - - [01/Dec/2025 15:40:23] "[35m[1mPOST /api/v1/process-document HTTP/1.1[0m" 202 -
+2025-12-01 15:40:23,928 - src.llm.llm_service - INFO - OpenAI client initialized successfully
+2025-12-01 15:40:23,928 - src.llm.llm_service - INFO - Attempting to initialize HF client (attempt 1/3)
+2025-12-01 15:40:24,221 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:40:24,455 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings/runtime "HTTP/1.1 200 OK"
+2025-12-01 15:40:25,393 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/config "HTTP/1.1 200 OK"
+2025-12-01 15:40:28,271 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/info?serialize=False "HTTP/1.1 200 OK"
+2025-12-01 15:40:28,273 - src.llm.llm_service - INFO - Testing HF client connection...
+2025-12-01 15:40:28,274 - src.llm.llm_service - INFO - HF embedding client initialized: mahendraVarmaGokaraju/qwen3-embeddings
+2025-12-01 15:40:28,275 - src.document_processing.llamaparse_service - INFO - LlamaParse service initialized
+2025-12-01 15:40:28,275 - src.document_processing.llamaparse_service - INFO - LlamaParse integration enabled
+2025-12-01 15:40:28,493 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/telemetry/py_client/initiated "HTTP/1.1 200 OK"
+2025-12-01 15:40:28,590 - api_service - INFO - ✅ Webhook sent successfully: phase1_started
+2025-12-01 15:40:28,592 - api_service - INFO - 🔄 Phase 1: Graph Decomposition
+2025-12-01 15:40:28,592 - src.document_processing.indexing_pipeline - INFO - Starting Phase I: Graph Decomposition
+2025-12-01 15:40:29,219 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/heartbeat/57a516dd-d905-4593-afa3-4b4352d84dea "HTTP/1.1 200 OK"
+2025-12-01 15:40:30,195 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:40:33,581 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:40:38,320 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:40:39,061 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:40:41,142 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:40:44,257 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:40:45,421 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:40:47,744 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:40:49,553 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:40:51,106 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:40:53,728 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:40:55,601 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:40:56,771 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:40:59,590 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:01,454 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:02,524 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:05,177 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:06,449 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:07,933 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:09,943 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:12,498 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:13,747 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:15,449 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:18,345 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:19,152 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:21,109 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:23,564 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:24,628 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:26,850 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:30,102 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:30,104 - src.document_processing.indexing_pipeline - INFO - Processed 10/16 chunks
+2025-12-01 15:41:31,312 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:33,150 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:35,105 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:37,892 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:39,191 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:42,560 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:43,588 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:44,517 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:46,192 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:47,093 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:49,033 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:49,897 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:51,418 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:53,738 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:56,150 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:57,267 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:41:59,477 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:01,862 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:01,873 - src.document_processing.indexing_pipeline - INFO - Phase I completed: 16 successful, 0 failed
+2025-12-01 15:42:02,345 - api_service - INFO - ✅ Webhook sent successfully: phase2_started
+2025-12-01 15:42:02,345 - api_service - INFO - 🔄 Phase 2: Graph Augmentation
+2025-12-01 15:42:02,345 - src.document_processing.indexing_pipeline - INFO - Starting Phase II: Graph Augmentation
+2025-12-01 15:42:02,444 - src.document_processing.indexing_pipeline - INFO - Identified 24 important entities
+2025-12-01 15:42:03,841 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:05,786 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:09,041 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:10,310 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:11,516 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:12,727 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:14,693 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:16,135 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:17,902 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:19,028 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:20,786 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:22,849 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:25,843 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:28,457 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:31,463 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:33,787 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:36,310 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:38,555 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:41,319 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:43,233 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:44,768 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:47,124 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:48,695 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:50,440 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:50,443 - src.document_processing.indexing_pipeline - INFO - Created 24 attribute nodes
+2025-12-01 15:42:50,468 - src.graph.graph_manager - INFO - Detected 14 communities
+2025-12-01 15:42:53,955 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:54,522 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:58,449 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:42:59,047 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:01,929 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:02,581 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:06,067 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:06,660 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:10,382 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:10,960 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:15,177 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:15,787 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:18,869 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:19,403 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:23,537 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:24,081 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:25,781 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:26,335 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:30,066 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:30,722 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:34,385 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:35,394 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:37,885 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:38,470 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:41,442 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:42,113 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:44,547 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:45,127 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-12-01 15:43:45,129 - src.document_processing.indexing_pipeline - INFO - Created 14 high-level nodes and 14 overview nodes
+2025-12-01 15:43:45,610 - api_service - INFO - ✅ Webhook sent successfully: phase3_started
+2025-12-01 15:43:45,611 - api_service - INFO - 🔄 Phase 3: Embedding Generation
+2025-12-01 15:43:45,613 - src.document_processing.indexing_pipeline - INFO - Starting Phase III: Embedding Generation
+2025-12-01 15:43:45,621 - src.vector.hnsw_service - INFO - HNSW service initialized: dim=1536, space=cosine
+2025-12-01 15:43:45,671 - src.vector.hnsw_service - INFO - HNSW index loaded from data/processed/hnsw_index, 8537 elements
+2025-12-01 15:43:45,671 - src.document_processing.indexing_pipeline - INFO - Loaded existing HNSW index with 8537 vectors
+2025-12-01 15:43:45,671 - src.document_processing.indexing_pipeline - INFO - HNSW service initialized: True
+2025-12-01 15:43:45,672 - src.document_processing.indexing_pipeline - INFO - Generating embeddings for 361 nodes
+2025-12-01 15:43:46,361 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:43:47,404 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 1/23
+2025-12-01 15:43:48,237 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:43:49,315 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 2/23
+2025-12-01 15:43:50,174 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:43:51,125 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 3/23
+2025-12-01 15:43:51,574 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:43:52,919 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 4/23
+2025-12-01 15:43:53,552 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:43:54,552 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 5/23
+2025-12-01 15:43:55,106 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:43:56,124 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 6/23
+2025-12-01 15:43:56,998 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:43:58,108 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 7/23
+2025-12-01 15:43:58,585 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:43:59,803 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 8/23
+2025-12-01 15:44:00,455 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:44:01,619 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 9/23
+2025-12-01 15:44:02,967 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:44:04,141 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 10/23
+2025-12-01 15:44:04,623 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:44:05,957 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 11/23
+2025-12-01 15:44:06,647 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:44:07,679 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 12/23
+2025-12-01 15:44:08,482 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:44:09,600 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 13/23
+2025-12-01 15:44:10,536 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:44:11,712 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 14/23
+2025-12-01 15:44:12,412 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:44:13,800 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 15/23
+2025-12-01 15:44:14,696 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:44:15,704 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 16/23
+2025-12-01 15:44:16,507 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:44:17,452 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 17/23
+2025-12-01 15:44:18,124 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:44:19,532 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 18/23
+2025-12-01 15:44:20,787 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:44:21,887 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 19/23
+2025-12-01 15:44:22,657 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:44:23,761 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 20/23
+2025-12-01 15:44:24,457 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:44:25,551 - src.vector.hnsw_service - WARNING - Node H_community_0 already exists in index
+2025-12-01 15:44:25,551 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_0 to HNSW index
+2025-12-01 15:44:25,551 - src.vector.hnsw_service - WARNING - Node H_community_1 already exists in index
+2025-12-01 15:44:25,551 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_1 to HNSW index
+2025-12-01 15:44:25,551 - src.vector.hnsw_service - WARNING - Node H_community_2 already exists in index
+2025-12-01 15:44:25,551 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_2 to HNSW index
+2025-12-01 15:44:25,551 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 21/23
+2025-12-01 15:44:26,403 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:44:27,444 - src.vector.hnsw_service - WARNING - Node H_community_3 already exists in index
+2025-12-01 15:44:27,445 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_3 to HNSW index
+2025-12-01 15:44:27,445 - src.vector.hnsw_service - WARNING - Node H_community_4 already exists in index
+2025-12-01 15:44:27,445 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_4 to HNSW index
+2025-12-01 15:44:27,445 - src.vector.hnsw_service - WARNING - Node H_community_5 already exists in index
+2025-12-01 15:44:27,445 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_5 to HNSW index
+2025-12-01 15:44:27,445 - src.vector.hnsw_service - WARNING - Node H_community_6 already exists in index
+2025-12-01 15:44:27,445 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_6 to HNSW index
+2025-12-01 15:44:27,445 - src.vector.hnsw_service - WARNING - Node H_community_7 already exists in index
+2025-12-01 15:44:27,445 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_7 to HNSW index
+2025-12-01 15:44:27,445 - src.vector.hnsw_service - WARNING - Node H_community_8 already exists in index
+2025-12-01 15:44:27,445 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_8 to HNSW index
+2025-12-01 15:44:27,445 - src.vector.hnsw_service - WARNING - Node H_community_9 already exists in index
+2025-12-01 15:44:27,445 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_9 to HNSW index
+2025-12-01 15:44:27,445 - src.vector.hnsw_service - WARNING - Node H_community_10 already exists in index
+2025-12-01 15:44:27,445 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_10 to HNSW index
+2025-12-01 15:44:27,445 - src.vector.hnsw_service - WARNING - Node H_community_11 already exists in index
+2025-12-01 15:44:27,445 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_11 to HNSW index
+2025-12-01 15:44:27,445 - src.vector.hnsw_service - WARNING - Node H_community_12 already exists in index
+2025-12-01 15:44:27,445 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_12 to HNSW index
+2025-12-01 15:44:27,445 - src.vector.hnsw_service - WARNING - Node H_community_13 already exists in index
+2025-12-01 15:44:27,445 - src.document_processing.indexing_pipeline - WARNING - Failed to add node H_community_13 to HNSW index
+2025-12-01 15:44:27,445 - src.vector.hnsw_service - WARNING - Node O_community_0 already exists in index
+2025-12-01 15:44:27,445 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_0 to HNSW index
+2025-12-01 15:44:27,445 - src.vector.hnsw_service - WARNING - Node O_community_1 already exists in index
+2025-12-01 15:44:27,445 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_1 to HNSW index
+2025-12-01 15:44:27,445 - src.vector.hnsw_service - WARNING - Node O_community_2 already exists in index
+2025-12-01 15:44:27,445 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_2 to HNSW index
+2025-12-01 15:44:27,445 - src.vector.hnsw_service - WARNING - Node O_community_3 already exists in index
+2025-12-01 15:44:27,445 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_3 to HNSW index
+2025-12-01 15:44:27,445 - src.vector.hnsw_service - WARNING - Node O_community_4 already exists in index
+2025-12-01 15:44:27,445 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_4 to HNSW index
+2025-12-01 15:44:27,445 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 22/23
+2025-12-01 15:44:28,127 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:44:28,893 - src.vector.hnsw_service - WARNING - Node O_community_5 already exists in index
+2025-12-01 15:44:28,893 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_5 to HNSW index
+2025-12-01 15:44:28,893 - src.vector.hnsw_service - WARNING - Node O_community_6 already exists in index
+2025-12-01 15:44:28,893 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_6 to HNSW index
+2025-12-01 15:44:28,893 - src.vector.hnsw_service - WARNING - Node O_community_7 already exists in index
+2025-12-01 15:44:28,893 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_7 to HNSW index
+2025-12-01 15:44:28,893 - src.vector.hnsw_service - WARNING - Node O_community_8 already exists in index
+2025-12-01 15:44:28,893 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_8 to HNSW index
+2025-12-01 15:44:28,893 - src.vector.hnsw_service - WARNING - Node O_community_9 already exists in index
+2025-12-01 15:44:28,893 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_9 to HNSW index
+2025-12-01 15:44:28,893 - src.vector.hnsw_service - WARNING - Node O_community_10 already exists in index
+2025-12-01 15:44:28,893 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_10 to HNSW index
+2025-12-01 15:44:28,893 - src.vector.hnsw_service - WARNING - Node O_community_11 already exists in index
+2025-12-01 15:44:28,893 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_11 to HNSW index
+2025-12-01 15:44:28,893 - src.vector.hnsw_service - WARNING - Node O_community_12 already exists in index
+2025-12-01 15:44:28,893 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_12 to HNSW index
+2025-12-01 15:44:28,893 - src.vector.hnsw_service - WARNING - Node O_community_13 already exists in index
+2025-12-01 15:44:28,893 - src.document_processing.indexing_pipeline - WARNING - Failed to add node O_community_13 to HNSW index
+2025-12-01 15:44:28,893 - src.document_processing.indexing_pipeline - INFO - Generated embeddings for batch 23/23
+2025-12-01 15:44:28,997 - src.vector.hnsw_service - INFO - HNSW index saved to data/processed/hnsw_index
+2025-12-01 15:44:28,999 - src.document_processing.indexing_pipeline - INFO - HNSW index saved: True
+2025-12-01 15:44:28,999 - src.document_processing.indexing_pipeline - INFO - Phase III completed: 333 embeddings generated and indexed
+2025-12-01 15:44:28,999 - api_service - INFO - 💾 Storing in NeonDB
+2025-12-01 15:44:29,027 - src.llm.llm_service - INFO - OpenAI client initialized successfully
+2025-12-01 15:44:29,027 - src.llm.llm_service - INFO - Attempting to initialize HF client (attempt 1/3)
+2025-12-01 15:44:29,499 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings "HTTP/1.1 200 OK"
+2025-12-01 15:44:29,728 - httpx - INFO - HTTP Request: GET https://huggingface.co/api/spaces/mahendraVarmaGokaraju/qwen3-embeddings/runtime "HTTP/1.1 200 OK"
+2025-12-01 15:44:30,847 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/config "HTTP/1.1 200 OK"
+2025-12-01 15:44:31,945 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/info?serialize=False "HTTP/1.1 200 OK"
+2025-12-01 15:44:31,977 - src.llm.llm_service - INFO - Testing HF client connection...
+2025-12-01 15:44:31,978 - src.llm.llm_service - INFO - HF embedding client initialized: mahendraVarmaGokaraju/qwen3-embeddings
+2025-12-01 15:44:32,194 - httpx - INFO - HTTP Request: HEAD https://huggingface.co/api/telemetry/py_client/initiated "HTTP/1.1 200 OK"
+2025-12-01 15:44:33,033 - httpx - INFO - HTTP Request: GET https://mahendravarmagokaraju-qwen3-embeddings.hf.space/gradio_api/heartbeat/32460d93-9bd5-4e88-88d6-0eca14123daf "HTTP/1.1 200 OK"
+2025-12-01 15:44:35,315 - src.storage.neon_storage - INFO - ✅ NodeRAG database tables ensured
+2025-12-01 15:44:44,675 - src.storage.neon_storage - INFO - ✅ Stored graph data for file_id=32272b98-730b-44ac-918a-c4cdf8430cb9
+2025-12-01 15:44:44,681 - src.storage.neon_storage - INFO - 📊 Found 361 nodes to store

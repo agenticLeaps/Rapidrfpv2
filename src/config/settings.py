@@ -44,6 +44,9 @@ class Config:
     
     # HuggingFace Embedding Endpoint
     QWEN_EMBEDDING_ENDPOINT = get_config_value("QWEN_EMBEDDING_ENDPOINT", "mahendraVarmaGokaraju/qwen3-embeddings")
+    HF_CLIENT_TIMEOUT = get_int_config("HF_CLIENT_TIMEOUT", 30)
+    HF_CLIENT_CONNECT_TIMEOUT = get_int_config("HF_CLIENT_CONNECT_TIMEOUT", 10)
+    HF_CLIENT_MAX_RETRIES = get_int_config("HF_CLIENT_MAX_RETRIES", 3)
     
     # Document Processing Settings
     CHUNK_SIZE = get_int_config("CHUNK_SIZE", 512)
