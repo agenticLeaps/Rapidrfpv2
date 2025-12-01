@@ -513,6 +513,245 @@ def delete_file():
         logger.error(f"❌ Delete error: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/v1/delete-embeddings", methods=["DELETE"])
+def delete_embeddings():
+    """Delete embeddings and graph data for multiple files (bulk delete)"""
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ["org_id", "file_ids"]
+        for field in required_fields:
+            if field not in data:
+                return jsonify({"error": f"Missing required field: {field}"}), 400
+        
+        org_id = data["org_id"]
+        file_ids = data["file_ids"]
+        callback_url = data.get("callback_url")
+        
+        # Validate file_ids
+        if not isinstance(file_ids, list) or len(file_ids) == 0:
+            return jsonify({"error": "file_ids must be a non-empty list"}), 400
+        
+        # Generate deletion task ID
+        deletion_id = str(uuid.uuid4())
+        
+        logger.info(f"🗑️ Starting bulk deletion: org_id={org_id}, file_count={len(file_ids)}, deletion_id={deletion_id}")
+        
+        # Store initial status
+        with processing_lock:
+            processing_status[deletion_id] = {
+                "status": "deleting",
+                "phase": "initialization",
+                "progress": 0,
+                "started_at": time.time(),
+                "org_id": org_id,
+                "file_ids": file_ids,
+                "total_files": len(file_ids),
+                "deleted_files": 0,
+                "failed_files": 0,
+                "operation": "bulk_delete"
+            }
+        
+        # Send initial webhook
+        if callback_url:
+            send_webhook(callback_url, "deletion_started", {
+                "deletion_id": deletion_id,
+                "org_id": org_id,
+                "file_count": len(file_ids),
+                "phase": "initialization",
+                "progress": 0
+            })
+        
+        # Start background deletion
+        def delete_async():
+            bulk_delete_pipeline(org_id, file_ids, deletion_id, callback_url)
+        
+        threading.Thread(target=delete_async, daemon=True).start()
+        
+        return jsonify({
+            "message": "Bulk deletion started",
+            "deletion_id": deletion_id,
+            "org_id": org_id,
+            "file_count": len(file_ids),
+            "status": "deleting",
+            "estimated_time": f"{len(file_ids) * 2}-{len(file_ids) * 5} seconds"
+        }), 202
+        
+    except Exception as e:
+        logger.error(f"❌ Bulk delete error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+def bulk_delete_pipeline(org_id: str, file_ids: List[str], deletion_id: str, callback_url: str = None):
+    """Background bulk deletion pipeline"""
+    try:
+        storage = noderag_service.get_neon_storage()
+        
+        # Update status: Phase 1 - Database cleanup
+        with processing_lock:
+            processing_status[deletion_id].update({
+                "phase": "database_cleanup",
+                "progress": 10
+            })
+        
+        if callback_url:
+            send_webhook(callback_url, "phase1_database_cleanup", {
+                "deletion_id": deletion_id,
+                "org_id": org_id,
+                "phase": "database_cleanup",
+                "progress": 10
+            })
+        
+        deleted_count = 0
+        failed_count = 0
+        deleted_files = []
+        failed_files = []
+        
+        # Delete each file's data
+        for i, file_id in enumerate(file_ids):
+            try:
+                logger.info(f"🗑️ Deleting file {i+1}/{len(file_ids)}: {file_id}")
+                
+                delete_result = storage.delete_file_data(org_id=org_id, file_id=file_id)
+                
+                if delete_result.get("success", True):
+                    deleted_count += 1
+                    deleted_files.append(file_id)
+                    logger.info(f"✅ Deleted {delete_result.get('deleted_count', 0)} records for file_id={file_id}")
+                else:
+                    failed_count += 1
+                    failed_files.append(file_id)
+                    logger.error(f"❌ Failed to delete file_id={file_id}: {delete_result.get('error', 'Unknown error')}")
+                
+                # Update progress
+                progress = 10 + (70 * (i + 1) / len(file_ids))
+                with processing_lock:
+                    processing_status[deletion_id].update({
+                        "progress": int(progress),
+                        "deleted_files": deleted_count,
+                        "failed_files": failed_count
+                    })
+                
+                # Clean up processing status for this file
+                with processing_lock:
+                    if file_id in processing_status:
+                        del processing_status[file_id]
+                
+            except Exception as e:
+                failed_count += 1
+                failed_files.append(file_id)
+                logger.error(f"❌ Exception deleting file_id={file_id}: {e}")
+        
+        # Update status: Phase 2 - Memory cleanup
+        with processing_lock:
+            processing_status[deletion_id].update({
+                "phase": "memory_cleanup",
+                "progress": 80
+            })
+        
+        if callback_url:
+            send_webhook(callback_url, "phase2_memory_cleanup", {
+                "deletion_id": deletion_id,
+                "org_id": org_id,
+                "phase": "memory_cleanup",
+                "progress": 80,
+                "deleted_files": deleted_count,
+                "failed_files": failed_count
+            })
+        
+        # Clean up in-memory graph data if available
+        pipeline = noderag_service.get_pipeline()
+        if pipeline and pipeline.graph_manager:
+            try:
+                # Remove nodes associated with deleted files from in-memory graph
+                nodes_to_remove = []
+                for node_id in pipeline.graph_manager.graph.nodes():
+                    node = pipeline.graph_manager.get_node(node_id)
+                    if node and node.metadata.get('org_id') == org_id and node.metadata.get('file_id') in deleted_files:
+                        nodes_to_remove.append(node_id)
+                
+                for node_id in nodes_to_remove:
+                    pipeline.graph_manager.graph.remove_node(node_id)
+                
+                logger.info(f"🧹 Removed {len(nodes_to_remove)} nodes from in-memory graph")
+                
+                # Update HNSW index if available
+                hnsw_service = pipeline._get_hnsw_service()
+                if hnsw_service:
+                    # Note: HNSW doesn't support deletion, would need rebuild for production
+                    logger.info("⚠️ HNSW index may contain stale data - consider rebuilding")
+                
+            except Exception as e:
+                logger.warning(f"⚠️ Memory cleanup warning: {e}")
+        
+        # Complete deletion
+        with processing_lock:
+            processing_status[deletion_id].update({
+                "status": "completed",
+                "phase": "completed",
+                "progress": 100,
+                "completed_at": time.time(),
+                "deleted_files": deleted_count,
+                "failed_files": failed_count,
+                "results": {
+                    "total_files": len(file_ids),
+                    "successfully_deleted": deleted_files,
+                    "failed_deletions": failed_files,
+                    "deleted_count": deleted_count,
+                    "failed_count": failed_count
+                }
+            })
+        
+        if callback_url:
+            send_webhook(callback_url, "deletion_completed", {
+                "deletion_id": deletion_id,
+                "org_id": org_id,
+                "results": processing_status[deletion_id]["results"]
+            })
+        
+        logger.info(f"✅ Bulk deletion completed: deletion_id={deletion_id}, deleted={deleted_count}, failed={failed_count}")
+        
+    except Exception as e:
+        logger.error(f"❌ Bulk deletion pipeline error: {e}")
+        
+        # Update status: Failed
+        with processing_lock:
+            processing_status[deletion_id].update({
+                "status": "failed",
+                "phase": "failed",
+                "error": str(e),
+                "failed_at": time.time()
+            })
+        
+        if callback_url:
+            send_webhook(callback_url, "deletion_failed", {
+                "deletion_id": deletion_id,
+                "org_id": org_id,
+                "error": str(e)
+            })
+
+@app.route("/api/v1/delete-status/<deletion_id>", methods=["GET"])
+def get_deletion_status(deletion_id: str):
+    """Get deletion status for a bulk deletion operation"""
+    try:
+        with processing_lock:
+            status = processing_status.get(deletion_id)
+        
+        if not status:
+            return jsonify({"error": "Deletion operation not found"}), 404
+        
+        if status.get("operation") != "bulk_delete":
+            return jsonify({"error": "Invalid operation type"}), 400
+        
+        return jsonify({
+            "deletion_id": deletion_id,
+            **status
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Deletion status check error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/v1/generate-response", methods=["POST"])
 def generate_response():
     """Generate a response using NodeRAG's advanced search and LLM - same approach as web UI"""
