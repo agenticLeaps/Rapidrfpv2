@@ -36,9 +36,10 @@ ENV/
 *.swp
 *.swo
 
-# Data and logs
+# Data and logs (exclude all log files and logs directory)
 data/processed/*
-logs/*.log
+logs/
+*.log
 *.gpickle
 
 # OS

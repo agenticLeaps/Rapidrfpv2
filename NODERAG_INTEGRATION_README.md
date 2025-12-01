@@ -46,7 +46,13 @@ Create `.env` file in Rapidrfpv2 directory:
 # Database
 NEON_DATABASE_URL=postgresql://username:password@host/database
 
-# OpenAI
+# LLM Provider (default: gemini)
+LLM_PROVIDER=gemini
+
+# Gemini API (recommended)
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# OpenAI (fallback)
 OPENAI_API_KEY=your_openai_api_key_here
 
 # Optional: LlamaParse

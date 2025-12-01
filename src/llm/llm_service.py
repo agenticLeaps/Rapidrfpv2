@@ -6,6 +6,14 @@ from dataclasses import dataclass
 from openai import OpenAI
 from gradio_client import Client
 
+# Import Gemini client
+try:
+    from google import genai
+    GEMINI_AVAILABLE = True
+except ImportError:
+    GEMINI_AVAILABLE = False
+    genai = None
+
 from ..config.settings import Config
 from .prompts import PromptManager
 
@@ -33,19 +41,28 @@ class ExtractionResult:
 class LLMService:
     def __init__(self, language: str = "english"):
         self.openai_client = None
+        self.gemini_client = None
         self.embedding_client = None
+        self.llm_provider = Config.LLM_PROVIDER.lower()
         self.prompt_manager = PromptManager(language=language)
         self._initialize_clients()
     
     def _initialize_clients(self):
-        """Initialize OpenAI and HF embedding clients with timeout and retry logic."""
+        """Initialize LLM and embedding clients based on configuration."""
         try:
-            # Initialize OpenAI for LLM
-            self.openai_client = OpenAI(
-                api_key=Config.OPENAI_API_KEY,
-                timeout=Config.HF_CLIENT_TIMEOUT
-            )
-            logger.info("OpenAI client initialized successfully")
+            # Initialize LLM client based on provider
+            if self.llm_provider == "gemini":
+                self._initialize_gemini_client()
+            elif self.llm_provider == "openai":
+                self._initialize_openai_client()
+            else:
+                # Default to Gemini if available, otherwise OpenAI
+                if GEMINI_AVAILABLE and Config.GEMINI_API_KEY:
+                    self.llm_provider = "gemini"
+                    self._initialize_gemini_client()
+                else:
+                    self.llm_provider = "openai"
+                    self._initialize_openai_client()
             
             # Initialize HF Gradio client for embeddings with retry logic
             self._initialize_hf_client_with_retry()
@@ -53,6 +70,30 @@ class LLMService:
         except Exception as e:
             logger.error(f"Failed to initialize clients: {e}")
             raise
+    
+    def _initialize_gemini_client(self):
+        """Initialize Gemini client."""
+        if not GEMINI_AVAILABLE:
+            raise ImportError("google-genai library is not installed. Install it with: pip install google-genai")
+        
+        if not Config.GEMINI_API_KEY:
+            raise ValueError("GEMINI_API_KEY is required for Gemini provider")
+        
+        # Initialize Gemini client
+        self.gemini_client = genai.Client(api_key=Config.GEMINI_API_KEY)
+        logger.info(f"Gemini client initialized successfully with model: {Config.GEMINI_MODEL}")
+    
+    def _initialize_openai_client(self):
+        """Initialize OpenAI client."""
+        if not Config.OPENAI_API_KEY:
+            raise ValueError("OPENAI_API_KEY is required for OpenAI provider")
+        
+        # Initialize OpenAI for LLM
+        self.openai_client = OpenAI(
+            api_key=Config.OPENAI_API_KEY,
+            timeout=Config.HF_CLIENT_TIMEOUT
+        )
+        logger.info("OpenAI client initialized successfully")
     
     def _initialize_hf_client_with_retry(self):
         """Initialize HuggingFace client with retry logic."""
@@ -286,42 +327,18 @@ Relationships:"""
             return None
     
     def _chat_completion_with_json(self, prompt: str, json_schema: Dict[str, Any] = None, temperature: float = 0.7, max_tokens: int = None) -> Dict[str, Any]:
-        """Make OpenAI chat completion request with JSON schema validation."""
+        """Make chat completion request with JSON schema validation."""
         try:
             if max_tokens is None:
                 max_tokens = Config.DEFAULT_MAX_LENGTH
             
-            # Prepare messages
-            messages = [{"role": "user", "content": prompt}]
-            
-            # Make request with JSON mode if schema provided
-            if json_schema:
-                response = self.openai_client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=messages,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    response_format={"type": "json_object"}
-                )
+            if self.llm_provider == "gemini":
+                return self._gemini_chat_completion_json(prompt, json_schema, temperature, max_tokens)
             else:
-                response = self.openai_client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=messages,
-                    max_tokens=max_tokens,
-                    temperature=temperature
-                )
-            
-            content = response.choices[0].message.content.strip()
-            
-            # Parse JSON response
-            try:
-                return json.loads(content)
-            except json.JSONDecodeError:
-                logger.error(f"Failed to parse JSON response: {content}")
-                return {}
+                return self._openai_chat_completion_json(prompt, json_schema, temperature, max_tokens)
             
         except Exception as e:
-            logger.error(f"OpenAI API error: {e}")
+            logger.error(f"{self.llm_provider.upper()} API error: {e}")
             raise
     
     def decompose_query(self, query: str) -> List[str]:
@@ -526,11 +543,42 @@ Title:"""
             return [line.lstrip('- ').strip('"') for line in lines if line]
     
     def _chat_completion(self, prompt: str, temperature: float = 0.7, max_tokens: int = None) -> str:
-        """Make OpenAI chat completion request."""
+        """Make chat completion request."""
         try:
             if max_tokens is None:
                 max_tokens = Config.DEFAULT_MAX_LENGTH
             
+            if self.llm_provider == "gemini":
+                return self._gemini_chat_completion(prompt, temperature, max_tokens)
+            else:
+                return self._openai_chat_completion(prompt, temperature, max_tokens)
+            
+        except Exception as e:
+            logger.error(f"{self.llm_provider.upper()} API error: {e}")
+            raise
+    
+    def _gemini_chat_completion(self, prompt: str, temperature: float = 0.7, max_tokens: int = None) -> str:
+        """Make Gemini chat completion request."""
+        try:
+            response = self.gemini_client.models.generate_content(
+                model=Config.GEMINI_MODEL,
+                contents=prompt,
+                config={
+                    "temperature": temperature,
+                    "max_output_tokens": max_tokens,
+                    "top_p": 0.9
+                }
+            )
+            
+            return response.text.strip()
+            
+        except Exception as e:
+            logger.error(f"Gemini API error: {e}")
+            raise
+    
+    def _openai_chat_completion(self, prompt: str, temperature: float = 0.7, max_tokens: int = None) -> str:
+        """Make OpenAI chat completion request."""
+        try:
             response = self.openai_client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
@@ -542,6 +590,82 @@ Title:"""
             )
             
             return response.choices[0].message.content.strip()
+            
+        except Exception as e:
+            logger.error(f"OpenAI API error: {e}")
+            raise
+    
+    def _gemini_chat_completion_json(self, prompt: str, json_schema: Dict[str, Any] = None, temperature: float = 0.7, max_tokens: int = None) -> Dict[str, Any]:
+        """Make Gemini chat completion request with JSON parsing."""
+        try:
+            # Add JSON format instruction to prompt if JSON schema provided
+            json_prompt = prompt
+            if json_schema:
+                json_prompt += "\n\nPlease respond with a valid JSON object."
+            
+            response = self.gemini_client.models.generate_content(
+                model=Config.GEMINI_MODEL,
+                contents=json_prompt,
+                config={
+                    "temperature": temperature,
+                    "max_output_tokens": max_tokens,
+                    "top_p": 0.9
+                }
+            )
+            
+            content = response.text.strip()
+            
+            # Parse JSON response
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                # Try to extract JSON from markdown code blocks
+                import re
+                json_match = re.search(r'```(?:json)?\n(.*?)\n```', content, re.DOTALL)
+                if json_match:
+                    try:
+                        return json.loads(json_match.group(1))
+                    except json.JSONDecodeError:
+                        pass
+                
+                logger.error(f"Failed to parse JSON response from Gemini: {content}")
+                return {}
+            
+        except Exception as e:
+            logger.error(f"Gemini API error: {e}")
+            raise
+    
+    def _openai_chat_completion_json(self, prompt: str, json_schema: Dict[str, Any] = None, temperature: float = 0.7, max_tokens: int = None) -> Dict[str, Any]:
+        """Make OpenAI chat completion request with JSON schema validation."""
+        try:
+            # Prepare messages
+            messages = [{"role": "user", "content": prompt}]
+            
+            # Make request with JSON mode if schema provided
+            if json_schema:
+                response = self.openai_client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    response_format={"type": "json_object"}
+                )
+            else:
+                response = self.openai_client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    temperature=temperature
+                )
+            
+            content = response.choices[0].message.content.strip()
+            
+            # Parse JSON response
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                logger.error(f"Failed to parse JSON response: {content}")
+                return {}
             
         except Exception as e:
             logger.error(f"OpenAI API error: {e}")

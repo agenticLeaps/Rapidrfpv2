@@ -29,8 +29,17 @@ except ImportError:
         return str(value).lower() in ('true', '1', 'yes', 'on')
 
 class Config:
+    # LLM Provider Settings
+    LLM_PROVIDER = get_config_value("LLM_PROVIDER", "gemini")  # "openai" or "gemini"
+    
     # OpenAI API Settings (for LLM)
     OPENAI_API_KEY = get_config_value("OPENAI_API_KEY", "")
+    
+    # Gemini API Settings (for LLM)
+    GEMINI_API_KEY = get_config_value("GEMINI_API_KEY", "") or get_config_value("GOOGLE_API_KEY", "")
+    GEMINI_MODEL = get_config_value("GEMINI_MODEL", "gemini-2.5-flash-lite")
+    GEMINI_PROJECT_ID = get_config_value("GEMINI_PROJECT_ID", "")
+    GEMINI_LOCATION = get_config_value("GEMINI_LOCATION", "global")
     
     # LlamaParse API Settings
     LLAMA_CLOUD_API_KEY = get_config_value("LLAMA_CLOUD_API_KEY", "")
@@ -76,7 +85,7 @@ class Config:
     HNSW_INDEX_PATH = get_config_value("HNSW_INDEX_PATH", "data/processed/hnsw_index")
     
     # HNSW Settings
-    HNSW_DIMENSION = get_int_config("HNSW_DIMENSION", 1536)  # OpenAI embedding dimension
+    HNSW_DIMENSION = get_int_config("HNSW_DIMENSION", 1536)  # Default embedding dimension (OpenAI/HF compatible)
     HNSW_MAX_ELEMENTS = get_int_config("HNSW_MAX_ELEMENTS", 100000)
     HNSW_EF_CONSTRUCTION = get_int_config("HNSW_EF_CONSTRUCTION", 200)
     HNSW_M = get_int_config("HNSW_M", 50)
@@ -91,7 +100,6 @@ class Config:
     
     # Logging
     LOG_LEVEL = get_config_value("LOG_LEVEL", "INFO")
-    LOG_FILE = get_config_value("LOG_FILE", "logs/rapidrfp_rag.log")
     
     # API Settings
     API_HOST = get_config_value("API_HOST", "0.0.0.0")
