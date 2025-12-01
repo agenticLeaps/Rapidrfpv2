@@ -76,7 +76,7 @@ class Config:
     DEFAULT_TOP_P = get_float_config("DEFAULT_TOP_P", 0.9)
     
     # Batch Processing (Optimized for performance)
-    DEFAULT_BATCH_SIZE = get_int_config("DEFAULT_BATCH_SIZE", 32)  # Increased from 16 to 32
+    DEFAULT_BATCH_SIZE = get_int_config("DEFAULT_BATCH_SIZE", 500)  # Dramatically increased for embedding optimization
     
     # Performance Optimization Settings
     LLM_BATCH_SIZE = get_int_config("LLM_BATCH_SIZE", 8)              # Batch LLM calls for efficiency

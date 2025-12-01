@@ -481,25 +481,44 @@ Title:"""
             return "Community Overview"
     
     def get_embeddings(self, texts: List[str], batch_size: int = None) -> List[List[float]]:
-        """Get embeddings for a list of texts using OpenAI embeddings."""
+        """Get embeddings for a list of texts using optimized OpenAI embeddings."""
         if not texts:
             return []
         
+        # Use much larger batch size for better performance - OpenAI allows up to 2048 inputs per request
         if batch_size is None:
-            batch_size = min(Config.DEFAULT_BATCH_SIZE, 1000)  # OpenAI limit
+            batch_size = min(500, len(texts))  # Optimized batch size
         
         all_embeddings = []
         
         try:
-            # Process in batches using OpenAI
-            for i in range(0, len(texts), batch_size):
-                batch = texts[i:i + batch_size]
+            # Initialize OpenAI client for embeddings if not already initialized
+            if self.openai_client is None:
+                if not Config.OPENAI_API_KEY:
+                    logger.error("OpenAI API key required for embeddings but not found")
+                    return [[0.0] * 1536 for _ in texts]
                 
-                # Use OpenAI embeddings API
+                self.openai_client = OpenAI(
+                    api_key=Config.OPENAI_API_KEY,
+                    timeout=60  # Increased timeout for large batches
+                )
+                logger.info("OpenAI client initialized for embeddings")
+            
+            # Process in larger batches using OpenAI
+            total_batches = (len(texts) + batch_size - 1) // batch_size
+            start_time = time.time()
+            
+            for i in range(0, len(texts), batch_size):
+                batch_start = time.time()
+                batch = texts[i:i + batch_size]
+                batch_num = (i // batch_size) + 1
+                
+                # Use OpenAI embeddings API with optimized settings
                 response = self.openai_client.embeddings.create(
                     model="text-embedding-3-small",  # Latest OpenAI embedding model
                     input=batch,
-                    encoding_format="float"
+                    encoding_format="float",
+                    dimensions=1536  # Explicitly specify dimensions for consistency
                 )
                 
                 # Extract embeddings from response
@@ -507,14 +526,21 @@ Title:"""
                 
                 if embeddings and len(embeddings) == len(batch):
                     all_embeddings.extend(embeddings)
+                    batch_time = time.time() - batch_start
+                    logger.info(f"✅ Embedding batch {batch_num}/{total_batches}: {len(batch)} items in {batch_time:.2f}s ({len(batch)/batch_time:.1f} items/sec)")
                 else:
-                    logger.warning(f"Unexpected embedding result format for batch {i}")
+                    logger.warning(f"Unexpected embedding result format for batch {batch_num}")
                     # Add zero embeddings as fallback (1536 dimensions for OpenAI)
                     all_embeddings.extend([[0.0] * 1536 for _ in batch])
                 
-                # Small delay to avoid rate limiting
-                if i + batch_size < len(texts):
-                    time.sleep(0.1)
+                # Remove delay for faster processing - OpenAI can handle the rate
+                # Only add minimal delay if we have many small batches
+                if len(batch) < 100 and i + batch_size < len(texts):
+                    time.sleep(0.05)  # Much smaller delay
+            
+            total_time = time.time() - start_time
+            throughput = len(texts) / total_time if total_time > 0 else 0
+            logger.info(f"🚀 Generated {len(texts)} embeddings in {total_time:.2f}s ({throughput:.1f} embeddings/sec)")
             
             return all_embeddings
             

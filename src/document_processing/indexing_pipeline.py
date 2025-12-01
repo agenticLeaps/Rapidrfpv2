@@ -530,23 +530,30 @@ class IndexingPipeline:
             texts = [node.content for node in all_nodes]
             node_ids = [node.id for node in all_nodes]
             
-            # Generate embeddings in batches
-            batch_size = Config.DEFAULT_BATCH_SIZE
-            embeddings_generated = 0
+            # Generate ALL embeddings at once with optimized batching
+            logger.info(f"🚀 Generating embeddings for {len(texts)} nodes using optimized batching...")
             
-            for i in range(0, len(texts), batch_size):
-                batch_texts = texts[i:i + batch_size]
-                batch_node_ids = node_ids[i:i + batch_size]
+            embeddings = self.llm_service.get_embeddings(texts)
+            
+            if len(embeddings) != len(texts):
+                logger.error(f"Embedding count mismatch: {len(embeddings)} != {len(texts)}")
+                return {'success': False, 'error': 'Embedding generation failed'}
+            
+            logger.info(f"✅ Successfully generated {len(embeddings)} embeddings")
+            
+            # Update nodes with embeddings and add to HNSW index in optimized batches
+            embeddings_generated = 0
+            hnsw_batch_size = 500  # Process HNSW updates in batches for better performance
+            
+            for i in range(0, len(all_nodes), hnsw_batch_size):
+                batch_start = i
+                batch_end = min(i + hnsw_batch_size, len(all_nodes))
                 
-                # Generate embeddings for this batch
-                embeddings = self.llm_service.get_embeddings(batch_texts, batch_size)
-                
-                if len(embeddings) != len(batch_texts):
-                    logger.error(f"Embedding count mismatch: {len(embeddings)} != {len(batch_texts)}")
-                    continue
-                
-                # Update nodes with embeddings and add to HNSW index
-                for node_id, embedding in zip(batch_node_ids, embeddings):
+                # Update nodes with embeddings
+                for j in range(batch_start, batch_end):
+                    node_id = node_ids[j]
+                    embedding = embeddings[j]
+                    
                     node = self.graph_manager.get_node(node_id)
                     if node:
                         node.embeddings = embedding
@@ -568,7 +575,9 @@ class IndexingPipeline:
                         else:
                             logger.warning(f"Failed to add node {node_id} to HNSW index")
                 
-                logger.info(f"Generated embeddings for batch {i//batch_size + 1}/{(len(texts) + batch_size - 1)//batch_size}")
+                batch_num = (batch_start // hnsw_batch_size) + 1
+                total_batches = (len(all_nodes) + hnsw_batch_size - 1) // hnsw_batch_size
+                logger.info(f"✅ HNSW batch {batch_num}/{total_batches}: {batch_end - batch_start} nodes indexed")
             
             # Save HNSW index to disk
             try:
