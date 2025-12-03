@@ -283,3 +283,153 @@ class GraphManager:
         # Update the existing node
         self.graph.nodes[existing_id]['metadata'] = merged_metadata
         logger.debug(f"Merged entity {new_node.id} into {existing_id}")
+    
+    # ==================== ORG-LEVEL GRAPH METHODS ====================
+    
+    def load_from_data(self, graph_data: bytes) -> bool:
+        """Load existing graph data into current instance"""
+        try:
+            import pickle
+            from collections import defaultdict
+            
+            data = pickle.loads(graph_data)
+            
+            # Load the graph
+            self.graph = data['graph']
+            
+            # Rebuild entity index
+            self.entity_index = defaultdict(set)
+            for node_id, node_data in self.graph.nodes(data=True):
+                if node_data.get('type') == NodeType.ENTITY.value:
+                    entity_content = node_data.get('content', '').lower()
+                    self.entity_index[entity_content].add(node_id)
+            
+            # Load community assignments if available
+            self.community_assignments = data.get('community_assignments', {})
+            
+            logger.info(f"Loaded existing graph: {self.graph.number_of_nodes()} nodes, {self.graph.number_of_edges()} edges")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error loading graph data: {e}")
+            return False
+    
+    def merge_file_nodes(self, new_nodes: List[Node], file_id: str) -> Dict[str, Any]:
+        """Merge new file nodes with entity deduplication"""
+        stats = {
+            'nodes_added': 0,
+            'entities_merged': 0,
+            'edges_added': 0,
+            'file_id': file_id
+        }
+        
+        node_mapping = {}  # Map new node IDs to actual IDs in graph
+        
+        try:
+            # Add all non-entity nodes first
+            for node in new_nodes:
+                if node.type != NodeType.ENTITY:
+                    if self.add_node(node):
+                        stats['nodes_added'] += 1
+                        node_mapping[node.id] = node.id
+                    else:
+                        node_mapping[node.id] = node.id  # Already exists
+            
+            # Add entity nodes with deduplication
+            for node in new_nodes:
+                if node.type == NodeType.ENTITY:
+                    # Check for existing entity
+                    existing_entity = self._find_duplicate_entity(node)
+                    if existing_entity:
+                        # Merge with existing
+                        self._merge_entities(existing_entity, node)
+                        node_mapping[node.id] = existing_entity
+                        stats['entities_merged'] += 1
+                        logger.debug(f"Merged entity {node.id} -> {existing_entity}")
+                    else:
+                        # Add new entity
+                        if self.add_node(node):
+                            stats['nodes_added'] += 1
+                            node_mapping[node.id] = node.id
+                        else:
+                            node_mapping[node.id] = node.id
+            
+            logger.info(f"File {file_id} merge complete: {stats['nodes_added']} new nodes, {stats['entities_merged']} entities merged")
+            return stats
+            
+        except Exception as e:
+            logger.error(f"Error merging file nodes for {file_id}: {e}")
+            stats['error'] = str(e)
+            return stats
+    
+    def get_org_stats(self, processed_files: List[str] = None) -> Dict[str, Any]:
+        """Get stats with file-level breakdown"""
+        base_stats = self.get_stats()
+        
+        # Add org-specific stats
+        base_stats.update({
+            'org_level': True,
+            'processed_files': processed_files or [],
+            'files_count': len(processed_files or [])
+        })
+        
+        # Get file-level node distribution if metadata available
+        if processed_files:
+            file_stats = {}
+            for node_id, data in self.graph.nodes(data=True):
+                file_id = data.get('metadata', {}).get('file_id')
+                if file_id in processed_files:
+                    if file_id not in file_stats:
+                        file_stats[file_id] = {'nodes': 0, 'types': {}}
+                    file_stats[file_id]['nodes'] += 1
+                    node_type = data.get('type', 'unknown')
+                    file_stats[file_id]['types'][node_type] = file_stats[file_id]['types'].get(node_type, 0) + 1
+            
+            base_stats['file_distribution'] = file_stats
+        
+        return base_stats
+    
+    def clear_file_nodes(self, file_id: str) -> Dict[str, Any]:
+        """Remove all nodes associated with a specific file"""
+        stats = {'nodes_removed': 0, 'edges_removed': 0}
+        
+        try:
+            # Find nodes to remove
+            nodes_to_remove = []
+            for node_id, data in self.graph.nodes(data=True):
+                if data.get('metadata', {}).get('file_id') == file_id:
+                    nodes_to_remove.append(node_id)
+            
+            # Remove nodes (edges will be removed automatically)
+            edges_before = self.graph.number_of_edges()
+            for node_id in nodes_to_remove:
+                if self.graph.has_node(node_id):
+                    # Remove from entity index if it's an entity
+                    node_data = self.graph.nodes[node_id]
+                    if node_data.get('type') == NodeType.ENTITY.value:
+                        entity_content = node_data.get('content', '').lower()
+                        if entity_content in self.entity_index:
+                            self.entity_index[entity_content].discard(node_id)
+                            if not self.entity_index[entity_content]:
+                                del self.entity_index[entity_content]
+                    
+                    self.graph.remove_node(node_id)
+                    stats['nodes_removed'] += 1
+            
+            stats['edges_removed'] = edges_before - self.graph.number_of_edges()
+            
+            logger.info(f"Removed file {file_id}: {stats['nodes_removed']} nodes, {stats['edges_removed']} edges")
+            return stats
+            
+        except Exception as e:
+            logger.error(f"Error clearing file nodes for {file_id}: {e}")
+            stats['error'] = str(e)
+            return stats
+    
+    def get_file_node_count(self, file_id: str) -> int:
+        """Get count of nodes for a specific file"""
+        count = 0
+        for node_id, data in self.graph.nodes(data=True):
+            if data.get('metadata', {}).get('file_id') == file_id:
+                count += 1
+        return count

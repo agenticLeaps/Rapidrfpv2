@@ -21,6 +21,11 @@ class IndexingPipeline:
         self.llm_service = LLMService()
         self.hnsw_service = None  # Will be initialized when needed
         
+        # Org-level state tracking
+        self.is_incremental_mode = False
+        self.current_org_id = None
+        self.current_file_id = None
+        
         # Use enhanced document loader with LlamaParse integration
         if Config.USE_LLAMAPARSE:
             self.document_loader = EnhancedDocumentLoader(
@@ -187,6 +192,7 @@ class IndexingPipeline:
                     type=NodeType.SEMANTIC,
                     content=semantic_unit,
                     metadata={
+                        **chunk.metadata,  # Include file_id, org_id, user_id etc.
                         'chunk_id': chunk_id,
                         'semantic_index': i,
                         'source_file': chunk.metadata.get('file_path'),
@@ -214,6 +220,7 @@ class IndexingPipeline:
                     type=NodeType.ENTITY,
                     content=entity,
                     metadata={
+                        **chunk.metadata,  # Include file_id, org_id, user_id etc.
                         'chunk_id': chunk_id,
                         'entity_index': i,
                         'source_file': chunk.metadata.get('file_path'),
@@ -254,6 +261,7 @@ class IndexingPipeline:
                         type=NodeType.RELATIONSHIP,
                         content=f"{entity1} {relation} {entity2}",
                         metadata={
+                            **chunk.metadata,  # Include file_id, org_id, user_id etc.
                             'chunk_id': chunk_id,
                             'relationship_index': i,
                             'entity1': entity1,
@@ -382,8 +390,8 @@ class IndexingPipeline:
                 entity_relationships[:3]  # Include up to 3 relationships
             )
             
-            # Create attribute node
-            attribute_id = f"A_{entity.id}"
+            # Create attribute node with org-specific ID
+            attribute_id = f"A_{entity.id}_{self.current_org_id}" if self.current_org_id else f"A_{entity.id}"
             attribute_node = Node(
                 id=attribute_id,
                 type=NodeType.ATTRIBUTE,
@@ -432,8 +440,8 @@ class IndexingPipeline:
             # Generate high-level summary
             high_level_summary = self.llm_service.generate_community_summary(community_data)
             
-            # Create High-Level node
-            high_level_id = f"H_community_{community_id}"
+            # Create High-Level node with org-specific ID
+            high_level_id = f"H_community_{community_id}_{self.current_org_id}" if self.current_org_id else f"H_community_{community_id}"
             high_level_node = Node(
                 id=high_level_id,
                 type=NodeType.HIGH_LEVEL,
@@ -450,8 +458,8 @@ class IndexingPipeline:
             # Generate overview title
             overview_title = self.llm_service.generate_community_overview(high_level_summary)
             
-            # Create Overview node
-            overview_id = f"O_community_{community_id}"
+            # Create Overview node with org-specific ID
+            overview_id = f"O_community_{community_id}_{self.current_org_id}" if self.current_org_id else f"O_community_{community_id}"
             overview_node = Node(
                 id=overview_id,
                 type=NodeType.OVERVIEW,
@@ -605,3 +613,215 @@ class IndexingPipeline:
     def get_indexing_stats(self) -> Dict[str, Any]:
         """Get statistics about the current indexed content."""
         return self.graph_manager.get_stats()
+    
+    # ==================== INCREMENTAL PROCESSING METHODS ====================
+    
+    def set_incremental_mode(self, org_id: str, file_id: str, existing_graph_data: bytes = None):
+        """Set pipeline to incremental mode for org-level processing"""
+        self.is_incremental_mode = True
+        self.current_org_id = org_id
+        self.current_file_id = file_id
+        
+        if existing_graph_data:
+            # Load existing org graph
+            success = self.graph_manager.load_from_data(existing_graph_data)
+            if success:
+                logger.info(f"Loaded existing org graph for {org_id}: {self.graph_manager.graph.number_of_nodes()} nodes")
+            else:
+                logger.error(f"Failed to load existing graph for {org_id}")
+                self.is_incremental_mode = False
+        else:
+            logger.info(f"Starting fresh org graph for {org_id}")
+    
+    def _phase_2_incremental_augmentation(self, new_entities: List[Node]) -> Dict[str, Any]:
+        """Incremental augmentation - only process new entities"""
+        start_time = time.time()
+        logger.info("🔄 Starting Phase II Incremental Augmentation")
+        
+        try:
+            # Only create attribute nodes for truly new entities
+            attribute_nodes_created = 0
+            
+            logger.info(f"Processing attributes for {len(new_entities)} new entities")
+            
+            for entity in new_entities:
+                if self._create_attribute_node(entity):
+                    attribute_nodes_created += 1
+                    
+                    if attribute_nodes_created % 10 == 0:
+                        logger.info(f"Created {attribute_nodes_created} attribute nodes...")
+            
+            # Only run community detection if we have significant new content
+            communities = {}
+            high_level_nodes_created = 0
+            overview_nodes_created = 0
+            
+            if len(new_entities) > 5:  # Only if substantial new content
+                logger.info("Running incremental community detection")
+                communities = self.graph_manager.detect_communities()
+                
+                # Create community nodes for new/updated communities only
+                for community_id in set(communities.values()):
+                    # Check if this community already has high-level nodes
+                    existing_high_level = any(
+                        node.metadata.get('community_id') == community_id
+                        for node in self.graph_manager.get_nodes_by_type(NodeType.HIGH_LEVEL)
+                    )
+                    
+                    if not existing_high_level:
+                        high_level_created, overview_created = self._create_community_nodes(community_id)
+                        if high_level_created:
+                            high_level_nodes_created += 1
+                        if overview_created:
+                            overview_nodes_created += 1
+            
+            processing_time = time.time() - start_time
+            logger.info(f"✅ Phase II Incremental completed in {processing_time:.2f} seconds")
+            
+            return {
+                'success': True,
+                'processing_time': processing_time,
+                'new_entities_processed': len(new_entities),
+                'attribute_nodes': attribute_nodes_created,
+                'communities_detected': len(communities),
+                'high_level_nodes': high_level_nodes_created,
+                'overview_nodes': overview_nodes_created,
+                'incremental_mode': True
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in Phase II incremental augmentation: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def _phase_3_incremental_embeddings(self) -> Dict[str, Any]:
+        """Generate embeddings only for new nodes"""
+        start_time = time.time()
+        logger.info("🔄 Starting Phase III Incremental Embedding Generation")
+        
+        try:
+            # Get nodes without embeddings (newly added)
+            nodes_to_embed = []
+            node_ids = []
+            
+            for node_id, node_data in self.graph_manager.graph.nodes(data=True):
+                if not node_data.get('embeddings'):
+                    # Check if this is from current file being processed
+                    if (node_data.get('metadata', {}).get('file_id') == self.current_file_id or
+                        not node_data.get('metadata', {}).get('file_id')):  # Handle nodes without file_id
+                        
+                        node = self.graph_manager.get_node(node_id)
+                        if node and hasattr(node, 'content') and len(node.content.strip()) > 10:
+                            nodes_to_embed.append(node.content)
+                            node_ids.append(node_id)
+            
+            if not nodes_to_embed:
+                logger.info("No new nodes need embedding generation")
+                return {
+                    'success': True,
+                    'embeddings_generated': 0,
+                    'hnsw_indexed': 0,
+                    'processing_time': time.time() - start_time,
+                    'incremental_mode': True
+                }
+            
+            logger.info(f"Generating embeddings for {len(nodes_to_embed)} new nodes")
+            
+            # Generate embeddings in batches
+            embeddings = self.llm_service.get_embeddings(nodes_to_embed)
+            
+            if not embeddings or len(embeddings) != len(nodes_to_embed):
+                raise Exception(f"Embedding generation failed: expected {len(nodes_to_embed)}, got {len(embeddings or [])}")
+            
+            # Get HNSW service
+            hnsw_service = self._get_hnsw_service()
+            
+            # Update nodes with embeddings and add to HNSW
+            embeddings_generated = 0
+            
+            for node_id, embedding in zip(node_ids, embeddings):
+                node = self.graph_manager.get_node(node_id)
+                if node:
+                    node.embeddings = embedding
+                    self.graph_manager.update_node(node)
+                    
+                    # Add to HNSW index
+                    metadata = {
+                        'type': node.type.value,
+                        'content': node.content[:200],
+                        'file_id': self.current_file_id,
+                        'org_id': self.current_org_id
+                    }
+                    success = hnsw_service.add_node_embedding(
+                        node_id=node_id,
+                        embedding=embedding,
+                        metadata=metadata
+                    )
+                    
+                    if success:
+                        embeddings_generated += 1
+            
+            # Save HNSW index
+            try:
+                hnsw_saved = hnsw_service.save_index()
+                logger.info(f"HNSW index saved: {hnsw_saved}")
+            except Exception as e:
+                logger.warning(f"Failed to save HNSW index: {e}")
+            
+            processing_time = time.time() - start_time
+            logger.info(f"✅ Phase III Incremental completed: {embeddings_generated} embeddings in {processing_time:.2f} seconds")
+            
+            return {
+                'success': True,
+                'embeddings_generated': embeddings_generated,
+                'hnsw_indexed': embeddings_generated,
+                'processing_time': processing_time,
+                'incremental_mode': True
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in Phase III incremental embedding generation: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'embeddings_generated': 0,
+                'incremental_mode': True
+            }
+    
+    def get_new_entities_from_current_file(self) -> List[Node]:
+        """Get entity nodes that were added from the current file"""
+        new_entities = []
+        
+        # Debug: log what we're looking for
+        logger.info(f"Looking for entities with file_id: {self.current_file_id}")
+        logger.info(f"NodeType.ENTITY.value: {NodeType.ENTITY.value}")
+        
+        entity_count = 0
+        current_file_count = 0
+        
+        for node_id, node_data in self.graph_manager.graph.nodes(data=True):
+            node_type = node_data.get('type')
+            node_file_id = node_data.get('metadata', {}).get('file_id')
+            
+            if node_type == NodeType.ENTITY.value:
+                entity_count += 1
+                if node_file_id == self.current_file_id:
+                    current_file_count += 1
+                    node = self.graph_manager.get_node(node_id)
+                    if node:
+                        new_entities.append(node)
+        
+        logger.info(f"Total entities in graph: {entity_count}")
+        logger.info(f"Entities from current file ({self.current_file_id}): {current_file_count}")
+        logger.info(f"New entities found: {len(new_entities)}")
+        
+        # Debug: show a few examples of what we found
+        if entity_count > 0 and current_file_count == 0:
+            logger.warning("No entities found for current file. Sample entity file_ids:")
+            sample_count = 0
+            for node_id, node_data in self.graph_manager.graph.nodes(data=True):
+                if node_data.get('type') == NodeType.ENTITY.value and sample_count < 3:
+                    sample_file_id = node_data.get('metadata', {}).get('file_id')
+                    logger.warning(f"  Entity {node_id}: file_id={sample_file_id}")
+                    sample_count += 1
+        
+        return new_entities

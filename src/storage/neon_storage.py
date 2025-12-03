@@ -12,12 +12,41 @@ import logging
 from typing import List, Dict, Any, Optional
 from dataclasses import asdict
 import time
+import threading
+
+# Add sync database support for org operations
+try:
+    import psycopg2
+    import psycopg2.extras
+    PSYCOPG2_AVAILABLE = True
+except ImportError:
+    PSYCOPG2_AVAILABLE = False
 
 from ..config.settings import Config
 from ..graph.node_types import NodeType
 from ..llm.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
+
+def run_async_safe(coro):
+    """Safely run async function in sync context using a dedicated thread"""
+    import concurrent.futures
+    import threading
+    
+    def run_in_dedicated_thread():
+        # Create a completely new event loop in a dedicated thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+    
+    # Always use a separate thread to avoid any event loop conflicts
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(run_in_dedicated_thread)
+        return future.result(timeout=120)  # 2 minute timeout
 
 class NeonDBStorage:
     def __init__(self):
@@ -102,45 +131,104 @@ class NeonDBStorage:
                 );
             """)
             
-            # Create noderag_graphs table
+            # Create noderag_graphs table for org-level storage
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS noderag_graphs (
                     id SERIAL PRIMARY KEY,
-                    file_id VARCHAR(255) NOT NULL,
-                    org_id VARCHAR(255) NOT NULL,
+                    org_id VARCHAR(255) NOT NULL UNIQUE,
                     user_id VARCHAR(255) NOT NULL,
                     graph_data BYTEA,
                     stats JSONB,
+                    processed_files JSONB DEFAULT '[]'::jsonb,
+                    version INTEGER DEFAULT 1,
+                    last_file_added VARCHAR(255),
+                    last_incremental_update TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            
+            # Migrate existing noderag_graphs table if needed
+            await self._migrate_existing_graphs_table(conn)
+            
+            # Create file processing tracking table
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS noderag_file_processing (
+                    id SERIAL PRIMARY KEY,
+                    org_id VARCHAR(255) NOT NULL,
+                    file_id VARCHAR(255) NOT NULL,
+                    file_hash VARCHAR(64),
+                    processing_status VARCHAR(20) DEFAULT 'pending',
+                    node_count INTEGER DEFAULT 0,
+                    processing_time FLOAT DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    completed_at TIMESTAMP,
                     UNIQUE(org_id, file_id)
                 );
             """)
             
-            # Add updated_at column to existing noderag_graphs table if it doesn't exist
-            try:
+            logger.info("✅ NodeRAG tables ensured")
+            
+        finally:
+            await self._release_connection(conn)
+    
+    async def _migrate_existing_graphs_table(self, conn):
+        """Migrate existing noderag_graphs table to support org-level storage"""
+        try:
+            # Check if processed_files column exists
+            result = await conn.fetchval("""
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name = 'noderag_graphs' AND column_name = 'processed_files'
+            """)
+            
+            if not result:
+                logger.info("🔄 Migrating noderag_graphs table for org-level support...")
+                
+                # Add new columns
                 await conn.execute("""
                     ALTER TABLE noderag_graphs 
-                    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    ADD COLUMN IF NOT EXISTS processed_files JSONB DEFAULT '[]'::jsonb,
+                    ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1,
+                    ADD COLUMN IF NOT EXISTS last_file_added VARCHAR(255),
+                    ADD COLUMN IF NOT EXISTS last_incremental_update TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 """)
-            except Exception as e:
-                logger.warning(f"Could not add updated_at column (might already exist): {e}")
+                
+                # Remove old file_id constraint and add org_id constraint
+                await conn.execute("""
+                    ALTER TABLE noderag_graphs DROP CONSTRAINT IF EXISTS noderag_graphs_org_id_file_id_key
+                """)
+                
+                # Update existing records to have file_id in processed_files
+                await conn.execute("""
+                    UPDATE noderag_graphs 
+                    SET processed_files = jsonb_build_array(
+                        COALESCE(
+                            (SELECT file_id FROM noderag_graphs ng2 WHERE ng2.org_id = noderag_graphs.org_id LIMIT 1),
+                            'unknown_file'
+                        )
+                    )
+                    WHERE processed_files IS NULL OR processed_files = '[]'::jsonb
+                """)
+                
+                logger.info("✅ noderag_graphs table migration completed")
             
-            # Create optimized indexes for better performance
-            await conn.execute("CREATE INDEX IF NOT EXISTS idx_noderag_embeddings_org_file ON noderag_embeddings(org_id, file_id);")
-            await conn.execute("CREATE INDEX IF NOT EXISTS idx_noderag_embeddings_node_type ON noderag_embeddings(node_type);")
-            await conn.execute("CREATE INDEX IF NOT EXISTS idx_noderag_embeddings_org_id ON noderag_embeddings(org_id);")
-            await conn.execute("CREATE INDEX IF NOT EXISTS idx_noderag_graphs_org_file ON noderag_graphs(org_id, file_id);")
-            
-            # Add HNSW index for vector similarity search if extension is available
-            try:
-                await conn.execute("CREATE INDEX IF NOT EXISTS idx_noderag_embeddings_vector_hnsw ON noderag_embeddings USING hnsw (embedding vector_cosine_ops);")
-                logger.info("✅ Created HNSW vector index for faster similarity search")
-            except Exception as e:
-                logger.warning(f"HNSW extension not available: {e}")
-            
-            logger.info("✅ NodeRAG database tables ensured")
-            
+        except Exception as e:
+            logger.warning(f"Migration warning: {e}")
+            # Continue anyway - table might already be in correct format
+    
+    def run_migration(self):
+        """Public method to run migration manually if needed"""
+        return asyncio.run(self._run_migration_async())
+    
+    async def _run_migration_async(self):
+        """Run migration in async context"""
+        conn = await self._get_connection()
+        try:
+            await self._migrate_existing_graphs_table(conn)
+            return True
+        except Exception as e:
+            logger.error(f"Migration failed: {e}")
+            return False
         finally:
             await self._release_connection(conn)
     
@@ -642,3 +730,246 @@ class NeonDBStorage:
     def bulk_store_embeddings(self, org_id: str, file_id: str, user_id: str, embedding_data: List[Dict]) -> Dict[str, Any]:
         """Sync wrapper for bulk storage"""
         return asyncio.run(self.bulk_store_embeddings_async(org_id, file_id, user_id, embedding_data))
+    
+    # ==================== ORG-LEVEL GRAPH METHODS ====================
+    
+    async def _load_org_graph_async(self, org_id: str) -> Optional[Dict]:
+        """Load existing org graph with metadata"""
+        try:
+            conn = await self._get_connection()
+            try:
+                query = """
+                    SELECT org_id, user_id, graph_data, stats, processed_files, 
+                           version, last_file_added, last_incremental_update, created_at
+                    FROM noderag_graphs 
+                    WHERE org_id = $1
+                """
+                row = await conn.fetchrow(query, org_id)
+                
+                if row:
+                    return {
+                        'org_id': row['org_id'],
+                        'user_id': row['user_id'],
+                        'graph_data': row['graph_data'],
+                        'stats': json.loads(row['stats']) if row['stats'] else {},
+                        'processed_files': row['processed_files'] if row['processed_files'] else [],
+                        'version': row['version'],
+                        'last_file_added': row['last_file_added'],
+                        'last_incremental_update': row['last_incremental_update'],
+                        'created_at': row['created_at']
+                    }
+                return None
+                
+            finally:
+                await self._release_connection(conn)
+                
+        except Exception as e:
+            logger.error(f"Error loading org graph for {org_id}: {e}")
+            return None
+    
+    def load_org_graph(self, org_id: str) -> Optional[Dict]:
+        """Sync wrapper for loading org graph"""
+        return run_async_safe(self._load_org_graph_async(org_id))
+    
+    async def _store_org_graph_async(self, org_id: str, graph_data: bytes, 
+                                   processed_files: List[str], version: int, 
+                                   last_file_added: str, stats: Dict, user_id: str) -> Dict:
+        """Store updated org graph with file tracking"""
+        start_time = time.time()
+        
+        try:
+            await self._ensure_tables_exist()
+            conn = await self._get_connection()
+            
+            try:
+                async with conn.transaction():
+                    # Store/update org graph
+                    await conn.execute("""
+                        INSERT INTO noderag_graphs 
+                        (org_id, user_id, graph_data, stats, processed_files, version, 
+                         last_file_added, last_incremental_update)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
+                        ON CONFLICT (org_id) 
+                        DO UPDATE SET 
+                            graph_data = EXCLUDED.graph_data,
+                            stats = EXCLUDED.stats,
+                            processed_files = EXCLUDED.processed_files,
+                            version = EXCLUDED.version,
+                            last_file_added = EXCLUDED.last_file_added,
+                            last_incremental_update = CURRENT_TIMESTAMP,
+                            updated_at = CURRENT_TIMESTAMP
+                    """, org_id, user_id, graph_data, json.dumps(stats), 
+                         json.dumps(processed_files), version, last_file_added)
+                    
+                    # Update file processing status
+                    await conn.execute("""
+                        INSERT INTO noderag_file_processing 
+                        (org_id, file_id, processing_status, processing_time, completed_at)
+                        VALUES ($1, $2, 'completed', $3, CURRENT_TIMESTAMP)
+                        ON CONFLICT (org_id, file_id)
+                        DO UPDATE SET 
+                            processing_status = 'completed',
+                            processing_time = EXCLUDED.processing_time,
+                            completed_at = CURRENT_TIMESTAMP
+                    """, org_id, last_file_added, time.time() - start_time)
+                    
+                    logger.info(f"✅ Stored org graph for {org_id}: version {version}, files: {len(processed_files)}")
+                    
+                    return {
+                        "success": True,
+                        "org_id": org_id,
+                        "version": version,
+                        "processed_files": processed_files,
+                        "storage_time_seconds": time.time() - start_time
+                    }
+            
+            finally:
+                await self._release_connection(conn)
+                
+        except Exception as e:
+            logger.error(f"Error storing org graph for {org_id}: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "storage_time_seconds": time.time() - start_time
+            }
+    
+    def store_org_graph(self, org_id: str, graph_data: bytes, processed_files: List[str], 
+                       version: int, last_file_added: str, stats: Dict, user_id: str) -> Dict:
+        """Sync wrapper for storing org graph"""
+        return run_async_safe(self._store_org_graph_async(
+            org_id, graph_data, processed_files, version, last_file_added, stats, user_id
+        ))
+    
+    async def _check_file_already_processed_async(self, org_id: str, file_id: str) -> bool:
+        """Check if file already exists in org graph"""
+        try:
+            existing_graph = await self._load_org_graph_async(org_id)
+            if existing_graph:
+                return file_id in existing_graph.get('processed_files', [])
+            return False
+        except Exception as e:
+            logger.error(f"Error checking file status for {org_id}/{file_id}: {e}")
+            return False
+    
+    def check_file_already_processed(self, org_id: str, file_id: str) -> bool:
+        """Sync wrapper for checking file processing status"""
+        return run_async_safe(self._check_file_already_processed_async(org_id, file_id))
+    
+    async def _get_org_processed_files_async(self, org_id: str) -> List[str]:
+        """Get list of files already processed for org"""
+        try:
+            existing_graph = await self._load_org_graph_async(org_id)
+            if existing_graph:
+                return existing_graph.get('processed_files', [])
+            return []
+        except Exception as e:
+            logger.error(f"Error getting processed files for {org_id}: {e}")
+            return []
+    
+    def get_org_processed_files(self, org_id: str) -> List[str]:
+        """Sync wrapper for getting processed files"""
+        return run_async_safe(self._get_org_processed_files_async(org_id))
+    
+    # ==================== SYNCHRONOUS ORG OPERATIONS ====================
+    
+    def _get_sync_connection(self):
+        """Get synchronous database connection using psycopg2"""
+        if not PSYCOPG2_AVAILABLE:
+            raise ImportError("psycopg2 not available for sync operations")
+        
+        # Convert asyncpg URL to psycopg2 format
+        db_url = self.db_url
+        if db_url.startswith('postgresql://'):
+            db_url = db_url.replace('postgresql://', 'postgres://')
+        
+        return psycopg2.connect(db_url)
+    
+    def load_org_graph_sync(self, org_id: str) -> Optional[Dict]:
+        """Load org graph using synchronous connection"""
+        try:
+            with self._get_sync_connection() as conn:
+                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT org_id, user_id, graph_data, stats, processed_files, 
+                               version, last_file_added, last_incremental_update, created_at
+                        FROM noderag_graphs 
+                        WHERE org_id = %s
+                    """, (org_id,))
+                    
+                    row = cur.fetchone()
+                    if row:
+                        return {
+                            'org_id': row['org_id'],
+                            'user_id': row['user_id'],
+                            'graph_data': bytes(row['graph_data']) if row['graph_data'] else None,
+                            'stats': row['stats'] if row['stats'] else {},
+                            'processed_files': row['processed_files'] if row['processed_files'] else [],
+                            'version': row['version'],
+                            'last_file_added': row['last_file_added'],
+                            'last_incremental_update': row['last_incremental_update'],
+                            'created_at': row['created_at']
+                        }
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"Error loading org graph for {org_id} (sync): {e}")
+            return None
+    
+    def store_org_graph_sync(self, org_id: str, graph_data: bytes, processed_files: List[str], 
+                           version: int, last_file_added: str, stats: Dict, user_id: str) -> Dict:
+        """Store org graph using synchronous connection"""
+        start_time = time.time()
+        
+        try:
+            with self._get_sync_connection() as conn:
+                with conn.cursor() as cur:
+                    # Store/update org graph (include file_id as NULL for org-level storage)
+                    cur.execute("""
+                        INSERT INTO noderag_graphs 
+                        (org_id, user_id, file_id, graph_data, stats, processed_files, version, 
+                         last_file_added, last_incremental_update)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                        ON CONFLICT (org_id) 
+                        DO UPDATE SET 
+                            graph_data = EXCLUDED.graph_data,
+                            stats = EXCLUDED.stats,
+                            processed_files = EXCLUDED.processed_files,
+                            version = EXCLUDED.version,
+                            last_file_added = EXCLUDED.last_file_added,
+                            last_incremental_update = CURRENT_TIMESTAMP,
+                            updated_at = CURRENT_TIMESTAMP
+                    """, (org_id, user_id, None, psycopg2.Binary(graph_data), 
+                          json.dumps(stats), json.dumps(processed_files), version, last_file_added))
+                    
+                    # Update file processing status
+                    cur.execute("""
+                        INSERT INTO noderag_file_processing 
+                        (org_id, file_id, processing_status, processing_time, completed_at)
+                        VALUES (%s, %s, 'completed', %s, CURRENT_TIMESTAMP)
+                        ON CONFLICT (org_id, file_id)
+                        DO UPDATE SET 
+                            processing_status = 'completed',
+                            processing_time = EXCLUDED.processing_time,
+                            completed_at = CURRENT_TIMESTAMP
+                    """, (org_id, last_file_added, time.time() - start_time))
+                    
+                    conn.commit()
+                    
+                    logger.info(f"✅ Stored org graph for {org_id} (sync): version {version}, files: {len(processed_files)}")
+                    
+                    return {
+                        "success": True,
+                        "org_id": org_id,
+                        "version": version,
+                        "processed_files": processed_files,
+                        "storage_time_seconds": time.time() - start_time
+                    }
+                    
+        except Exception as e:
+            logger.error(f"Error storing org graph for {org_id} (sync): {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "storage_time_seconds": time.time() - start_time
+            }
