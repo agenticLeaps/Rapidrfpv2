@@ -973,3 +973,60 @@ class NeonDBStorage:
                 "error": str(e),
                 "storage_time_seconds": time.time() - start_time
             }
+    # ==================== VECTOR SIMILARITY SEARCH METHODS ====================
+    
+    def vector_similarity_search_sync(self, 
+                                      query_embedding: list, 
+                                      org_id: str, 
+                                      k: int = 10,
+                                      similarity_threshold: float = 0.7) -> list:
+        """
+        Perform vector similarity search using PostgreSQL pgvector (synchronous)
+        
+        Args:
+            query_embedding: Query vector as list of floats
+            org_id: Organization ID to filter results
+            k: Number of results to return
+            similarity_threshold: Minimum cosine similarity threshold
+            
+        Returns:
+            List of dictionaries with node_id, content, similarity_score, metadata
+        """
+        try:
+            # Convert embedding to string format for PostgreSQL vector
+            embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
+            
+            with self._get_sync_connection() as conn:
+                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT 
+                            node_id,
+                            node_type,
+                            content,
+                            graph_metadata,
+                            1 - (embedding <=> %s::vector) as similarity_score
+                        FROM noderag_embeddings 
+                        WHERE org_id = %s 
+                            AND 1 - (embedding <=> %s::vector) >= %s
+                        ORDER BY embedding <=> %s::vector
+                        LIMIT %s
+                    """, (embedding_str, org_id, embedding_str, similarity_threshold, embedding_str, k))
+                    
+                    rows = cur.fetchall()
+                    
+                    results = []
+                    for row in rows:
+                        results.append({
+                            "node_id": row["node_id"],
+                            "node_type": row["node_type"],
+                            "content": row["content"],
+                            "similarity_score": float(row["similarity_score"]),
+                            "metadata": row["graph_metadata"] or {}
+                        })
+                    
+                    logger.debug(f"Vector search found {len(results)} results for org {org_id}")
+                    return results
+                    
+        except Exception as e:
+            logger.error(f"Error in vector similarity search for org {org_id}: {e}")
+            return []

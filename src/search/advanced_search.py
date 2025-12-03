@@ -132,7 +132,7 @@ class AdvancedSearchSystem:
         return final_result
     
     def _hnsw_search(self, query: str, k: int) -> List[SearchResult]:
-        """Perform HNSW semantic similarity search."""
+        """Perform database vector similarity search (replaces HNSW)."""
         try:
             # Get query embedding
             query_embeddings = self.llm_service.get_embeddings([query])
@@ -140,20 +140,52 @@ class AdvancedSearchSystem:
                 logger.warning("Failed to get query embedding")
                 return []
             
-            query_embedding = np.array(query_embeddings[0], dtype=np.float32)
+            query_embedding = query_embeddings[0]
             
-            # Perform HNSW search
-            results = self.hnsw_service.search(
+            # Get current org_id from graph metadata or default
+            org_id = getattr(self, '_current_org_id', None)
+            if not org_id:
+                # Try to get org_id from first node's metadata
+                for node_id, node_data in self.graph_manager.graph.nodes(data=True):
+                    metadata = node_data.get('metadata', {})
+                    if 'org_id' in metadata:
+                        org_id = metadata['org_id']
+                        self._current_org_id = org_id
+                        break
+                
+                if not org_id:
+                    logger.warning("No org_id found for database vector search")
+                    return []
+            
+            # Perform database vector search
+            from src.storage.neon_storage import NeonDBStorage
+            storage = NeonDBStorage()
+            
+            search_results = storage.vector_similarity_search_sync(
                 query_embedding=query_embedding,
+                org_id=org_id,
                 k=k,
-                ef=max(200, k * 2)  # Dynamic ef based on k
+                similarity_threshold=0.5  # Lower threshold for more results
             )
             
-            logger.debug(f"HNSW search returned {len(results)} results")
+            # Convert database results to SearchResult format
+            results = []
+            for result in search_results:
+                # Create SearchResult-like object
+                search_result = type('SearchResult', (), {
+                    'node_id': result['node_id'],
+                    'similarity': result['similarity_score'],
+                    'content': result['content'],
+                    'node_type': result['node_type'],
+                    'metadata': result['metadata']
+                })()
+                results.append(search_result)
+            
+            logger.debug(f"Database vector search returned {len(results)} results")
             return results
             
         except Exception as e:
-            logger.error(f"Error in HNSW search: {e}")
+            logger.error(f"Error in database vector search: {e}")
             return []
     
     def _exact_entity_search(self, query: str) -> List[str]:

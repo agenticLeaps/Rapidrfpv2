@@ -594,6 +594,51 @@ class IndexingPipeline:
             except Exception as e:
                 logger.warning(f"Failed to save HNSW index: {e}")
             
+            # Store embeddings in database
+            try:
+                if embeddings_generated > 0:
+                    logger.info(f"Storing {embeddings_generated} embeddings in database")
+                    
+                    # Prepare embedding data for bulk storage
+                    embedding_data = []
+                    for node, embedding in zip(all_nodes, embeddings):
+                        if node.embeddings:  # Only include nodes that successfully got embeddings
+                            embedding_data.append({
+                                'node_id': node.id,
+                                'node_type': node.type.value,
+                                'content': node.content,
+                                'embedding': node.embeddings,
+                                'metadata': node.metadata,
+                                'chunk_index': node.metadata.get('chunk_index', 0)
+                            })
+                    
+                    if embedding_data and hasattr(self, 'current_org_id') and hasattr(self, 'current_file_id'):
+                        # Get storage service and store embeddings
+                        from src.storage.neon_storage import NeonDBStorage
+                        storage = NeonDBStorage()
+                        
+                        # Get user_id from node metadata (all nodes should have same user_id)
+                        user_id = 'unknown'
+                        if embedding_data and embedding_data[0].get('metadata'):
+                            user_id = embedding_data[0]['metadata'].get('user_id', 'unknown')
+                        
+                        storage_result = storage.bulk_store_embeddings(
+                            org_id=self.current_org_id,
+                            file_id=self.current_file_id,
+                            user_id=user_id,
+                            embedding_data=embedding_data
+                        )
+                        
+                        if storage_result.get('success'):
+                            logger.info(f"✅ Stored {storage_result.get('stored_count', 0)} embeddings in database")
+                        else:
+                            logger.warning(f"Failed to store embeddings in database: {storage_result.get('error')}")
+                    else:
+                        logger.info("Skipping database storage - missing org/file context or no embedding data")
+                            
+            except Exception as e:
+                logger.warning(f"Failed to store embeddings in database: {e}")
+            
             logger.info(f"Phase III completed: {embeddings_generated} embeddings generated and indexed")
             
             return {
@@ -766,6 +811,50 @@ class IndexingPipeline:
                 logger.info(f"HNSW index saved: {hnsw_saved}")
             except Exception as e:
                 logger.warning(f"Failed to save HNSW index: {e}")
+            
+            # Store embeddings in database
+            try:
+                if embeddings_generated > 0:
+                    logger.info(f"Storing {embeddings_generated} embeddings in database")
+                    
+                    # Prepare embedding data for bulk storage
+                    embedding_data = []
+                    for node_id, embedding in zip(node_ids, embeddings):
+                        node = self.graph_manager.get_node(node_id)
+                        if node and node.embeddings:
+                            embedding_data.append({
+                                'node_id': node_id,
+                                'node_type': node.type.value,
+                                'content': node.content,
+                                'embedding': node.embeddings,
+                                'metadata': node.metadata,
+                                'chunk_index': node.metadata.get('chunk_index', 0)
+                            })
+                    
+                    if embedding_data:
+                        # Get storage service and store embeddings
+                        from src.storage.neon_storage import NeonDBStorage
+                        storage = NeonDBStorage()
+                        
+                        # Get user_id from node metadata (all nodes should have same user_id)
+                        user_id = 'unknown'
+                        if embedding_data and embedding_data[0].get('metadata'):
+                            user_id = embedding_data[0]['metadata'].get('user_id', 'unknown')
+                        
+                        storage_result = storage.bulk_store_embeddings(
+                            org_id=self.current_org_id,
+                            file_id=self.current_file_id,
+                            user_id=user_id,
+                            embedding_data=embedding_data
+                        )
+                        
+                        if storage_result.get('success'):
+                            logger.info(f"✅ Stored {storage_result.get('stored_count', 0)} embeddings in database")
+                        else:
+                            logger.warning(f"Failed to store embeddings in database: {storage_result.get('error')}")
+                            
+            except Exception as e:
+                logger.warning(f"Failed to store embeddings in database: {e}")
             
             processing_time = time.time() - start_time
             logger.info(f"✅ Phase III Incremental completed: {embeddings_generated} embeddings in {processing_time:.2f} seconds")

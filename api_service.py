@@ -413,6 +413,9 @@ def generate_response():
             logger.error("Failed to initialize AdvancedSearchSystem after loading graph")
             return jsonify({"error": "Failed to initialize search system"}), 500
         
+        # Set org_id for database vector search
+        advanced_search._current_org_id = org_id
+        
         # Perform the search and generate response
         search_result = advanced_search.answer_query(
             query=query,
