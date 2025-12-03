@@ -453,6 +453,64 @@ def generate_response():
             "message": str(e)
         }), 500
 
+@app.route("/api/v1/delete-embeddings", methods=["DELETE"])
+def delete_embeddings():
+    """Delete embeddings for an organization or specific file"""
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        if "org_id" not in data:
+            return jsonify({"error": "Missing required field: org_id"}), 400
+        
+        org_id = data["org_id"]
+        file_id = data.get("file_id")  # Optional - if not provided, delete all org embeddings
+        
+        logger.info(f"🗑️ Delete request: org_id={org_id}, file_id={file_id}")
+        
+        # Get storage service
+        storage = noderag_service.get_neon_storage()
+        
+        if file_id:
+            # Delete specific file embeddings
+            result = storage.delete_file_data(org_id, file_id)
+            
+            if result.get("success"):
+                logger.info(f"✅ Deleted embeddings for file {file_id} in org {org_id}")
+                return jsonify({
+                    "success": True,
+                    "message": f"Deleted embeddings for file {file_id}",
+                    "org_id": org_id,
+                    "file_id": file_id,
+                    "embeddings_deleted": result.get("deleted_count", 0),
+                    "graphs_deleted": result.get("graphs_deleted", 0)
+                })
+            else:
+                return jsonify({
+                    "error": "Failed to delete file embeddings", 
+                    "message": result.get("error", "Unknown error"),
+                    "org_id": org_id,
+                    "file_id": file_id
+                }), 500
+        else:
+            # Delete all org embeddings - use existing delete_file_data for now
+            # TODO: Add delete_org_embeddings method to storage
+            logger.warning("Full org deletion not implemented yet, use file_id parameter")
+            return jsonify({
+                "error": "Full organization deletion not implemented",
+                "message": "Please provide file_id parameter to delete specific file",
+                "org_id": org_id
+            }), 400
+        
+    except Exception as e:
+        logger.error(f"❌ Delete embeddings error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "error": "Internal server error",
+            "message": str(e)
+        }), 500
+
 @app.route("/api/v1/status/<file_id>", methods=["GET"])
 def get_status(file_id: str):
     """Get processing status for a file"""

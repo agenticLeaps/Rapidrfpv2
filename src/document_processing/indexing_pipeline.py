@@ -612,29 +612,56 @@ class IndexingPipeline:
                                 'chunk_index': node.metadata.get('chunk_index', 0)
                             })
                     
-                    if embedding_data and hasattr(self, 'current_org_id') and hasattr(self, 'current_file_id'):
-                        # Get storage service and store embeddings
-                        from src.storage.neon_storage import NeonDBStorage
-                        storage = NeonDBStorage()
-                        
-                        # Get user_id from node metadata (all nodes should have same user_id)
-                        user_id = 'unknown'
-                        if embedding_data and embedding_data[0].get('metadata'):
-                            user_id = embedding_data[0]['metadata'].get('user_id', 'unknown')
-                        
-                        storage_result = storage.bulk_store_embeddings(
-                            org_id=self.current_org_id,
-                            file_id=self.current_file_id,
-                            user_id=user_id,
-                            embedding_data=embedding_data
-                        )
-                        
-                        if storage_result.get('success'):
-                            logger.info(f"✅ Stored {storage_result.get('stored_count', 0)} embeddings in database")
+                    if embedding_data:
+                        # Check if we have org/file context
+                        if hasattr(self, 'current_org_id') and hasattr(self, 'current_file_id'):
+                            # Get storage service and store embeddings
+                            from src.storage.neon_storage import NeonDBStorage
+                            storage = NeonDBStorage()
+                            
+                            # Get user_id from node metadata (all nodes should have same user_id)
+                            user_id = 'unknown'
+                            if embedding_data and embedding_data[0].get('metadata'):
+                                user_id = embedding_data[0]['metadata'].get('user_id', 'unknown')
+                            
+                            storage_result = storage.bulk_store_embeddings(
+                                org_id=self.current_org_id,
+                                file_id=self.current_file_id,
+                                user_id=user_id,
+                                embedding_data=embedding_data
+                            )
+                            
+                            if storage_result.get('success'):
+                                logger.info(f"✅ Stored {storage_result.get('stored_count', 0)} embeddings in database")
+                            else:
+                                logger.warning(f"Failed to store embeddings in database: {storage_result.get('error')}")
                         else:
-                            logger.warning(f"Failed to store embeddings in database: {storage_result.get('error')}")
-                    else:
-                        logger.info("Skipping database storage - missing org/file context or no embedding data")
+                            # For non-incremental mode, we can still store using default values from first node
+                            if embedding_data and embedding_data[0].get('metadata'):
+                                node_metadata = embedding_data[0]['metadata']
+                                org_id = node_metadata.get('org_id')
+                                file_id = node_metadata.get('file_id') 
+                                user_id = node_metadata.get('user_id', 'unknown')
+                                
+                                if org_id and file_id:
+                                    from src.storage.neon_storage import NeonDBStorage
+                                    storage = NeonDBStorage()
+                                    
+                                    storage_result = storage.bulk_store_embeddings(
+                                        org_id=org_id,
+                                        file_id=file_id,
+                                        user_id=user_id,
+                                        embedding_data=embedding_data
+                                    )
+                                    
+                                    if storage_result.get('success'):
+                                        logger.info(f"✅ Stored {storage_result.get('stored_count', 0)} embeddings in database (from node metadata)")
+                                    else:
+                                        logger.warning(f"Failed to store embeddings in database: {storage_result.get('error')}")
+                                else:
+                                    logger.warning("Missing org_id/file_id in node metadata, skipping database storage")
+                            else:
+                                logger.warning("No embedding data or metadata available for database storage")
                             
             except Exception as e:
                 logger.warning(f"Failed to store embeddings in database: {e}")
