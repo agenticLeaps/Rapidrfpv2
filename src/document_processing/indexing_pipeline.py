@@ -513,12 +513,11 @@ class IndexingPipeline:
         return self.graph_manager.load_graph(filepath)
     
     def _phase_3_embedding_generation(self) -> Dict[str, Any]:
-        """Phase III: Generate embeddings for all nodes."""
-        logger.info("Starting Phase III: Embedding Generation")
+        """Phase III: Generate embeddings for all nodes (Database-only storage)."""
+        logger.info("Starting Phase III: Embedding Generation (Database-only mode)")
         
-        # Get HNSW service instance
-        hnsw_service = self._get_hnsw_service()
-        logger.info(f"HNSW service initialized: {hnsw_service is not None}")
+        # Skip HNSW for production - using database-first architecture
+        logger.info("HNSW disk storage disabled for production - using database-only storage")
         
         try:
             # Get all nodes that need embeddings
@@ -549,50 +548,18 @@ class IndexingPipeline:
             
             logger.info(f"✅ Successfully generated {len(embeddings)} embeddings")
             
-            # Update nodes with embeddings and add to HNSW index in optimized batches
+            # Update nodes with embeddings (skip HNSW for production)
             embeddings_generated = 0
-            hnsw_batch_size = 500  # Process HNSW updates in batches for better performance
             
-            for i in range(0, len(all_nodes), hnsw_batch_size):
-                batch_start = i
-                batch_end = min(i + hnsw_batch_size, len(all_nodes))
-                
-                # Update nodes with embeddings
-                for j in range(batch_start, batch_end):
-                    node_id = node_ids[j]
-                    embedding = embeddings[j]
-                    
-                    node = self.graph_manager.get_node(node_id)
-                    if node:
-                        node.embeddings = embedding
-                        self.graph_manager.update_node(node)
-                        
-                        # Add to HNSW index for vector search
-                        metadata = {
-                            'type': node.type.value,
-                            'content': node.content[:200]  # Store first 200 chars for metadata
-                        }
-                        success = hnsw_service.add_node_embedding(
-                            node_id=node_id,
-                            embedding=embedding,
-                            metadata=metadata
-                        )
-                        
-                        if success:
-                            embeddings_generated += 1
-                        else:
-                            logger.warning(f"Failed to add node {node_id} to HNSW index")
-                
-                batch_num = (batch_start // hnsw_batch_size) + 1
-                total_batches = (len(all_nodes) + hnsw_batch_size - 1) // hnsw_batch_size
-                logger.info(f"✅ HNSW batch {batch_num}/{total_batches}: {batch_end - batch_start} nodes indexed")
+            # Update all nodes with embeddings
+            for i, (node_id, embedding) in enumerate(zip(node_ids, embeddings)):
+                node = self.graph_manager.get_node(node_id)
+                if node and embedding is not None:
+                    node.embeddings = embedding
+                    self.graph_manager.update_node(node)
+                    embeddings_generated += 1
             
-            # Save HNSW index to disk
-            try:
-                hnsw_saved = hnsw_service.save_index()
-                logger.info(f"HNSW index saved: {hnsw_saved}")
-            except Exception as e:
-                logger.warning(f"Failed to save HNSW index: {e}")
+            logger.info(f"✅ Updated {embeddings_generated} nodes with embeddings (database-only mode)")
             
             # Store embeddings in database
             try:
@@ -687,7 +654,8 @@ class IndexingPipeline:
             return {
                 'success': True,
                 'embeddings_generated': embeddings_generated,
-                'hnsw_indexed': embeddings_generated
+                'database_stored': embeddings_generated,
+                'storage_mode': 'database_only'
             }
             
         except Exception as e:
@@ -807,9 +775,10 @@ class IndexingPipeline:
                 return {
                     'success': True,
                     'embeddings_generated': 0,
-                    'hnsw_indexed': 0,
+                    'database_stored': 0,
                     'processing_time': time.time() - start_time,
-                    'incremental_mode': True
+                    'incremental_mode': True,
+                    'storage_mode': 'database_only'
                 }
             
             logger.info(f"Generating embeddings for {len(nodes_to_embed)} new nodes")
@@ -820,40 +789,18 @@ class IndexingPipeline:
             if not embeddings or len(embeddings) != len(nodes_to_embed):
                 raise Exception(f"Embedding generation failed: expected {len(nodes_to_embed)}, got {len(embeddings or [])}")
             
-            # Get HNSW service
-            hnsw_service = self._get_hnsw_service()
-            
-            # Update nodes with embeddings and add to HNSW
+            # Skip HNSW for production - using database-only storage
             embeddings_generated = 0
             
+            # Update nodes with embeddings (database-only mode)
             for node_id, embedding in zip(node_ids, embeddings):
                 node = self.graph_manager.get_node(node_id)
-                if node:
+                if node and embedding is not None:
                     node.embeddings = embedding
                     self.graph_manager.update_node(node)
-                    
-                    # Add to HNSW index
-                    metadata = {
-                        'type': node.type.value,
-                        'content': node.content[:200],
-                        'file_id': self.current_file_id,
-                        'org_id': self.current_org_id
-                    }
-                    success = hnsw_service.add_node_embedding(
-                        node_id=node_id,
-                        embedding=embedding,
-                        metadata=metadata
-                    )
-                    
-                    if success:
-                        embeddings_generated += 1
+                    embeddings_generated += 1
             
-            # Save HNSW index
-            try:
-                hnsw_saved = hnsw_service.save_index()
-                logger.info(f"HNSW index saved: {hnsw_saved}")
-            except Exception as e:
-                logger.warning(f"Failed to save HNSW index: {e}")
+            logger.info(f"✅ Updated {embeddings_generated} nodes with embeddings (database-only mode)")
             
             # Store embeddings in database
             try:
@@ -905,9 +852,10 @@ class IndexingPipeline:
             return {
                 'success': True,
                 'embeddings_generated': embeddings_generated,
-                'hnsw_indexed': embeddings_generated,
+                'database_stored': embeddings_generated,
                 'processing_time': processing_time,
-                'incremental_mode': True
+                'incremental_mode': True,
+                'storage_mode': 'database_only'
             }
             
         except Exception as e:
@@ -916,7 +864,8 @@ class IndexingPipeline:
                 'success': False,
                 'error': str(e),
                 'embeddings_generated': 0,
-                'incremental_mode': True
+                'incremental_mode': True,
+                'storage_mode': 'database_only'
             }
     
     def get_new_entities_from_current_file(self) -> List[Node]:
