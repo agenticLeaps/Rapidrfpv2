@@ -171,10 +171,11 @@ class AdvancedSearchSystem:
             # Convert database results to SearchResult format
             results = []
             for result in search_results:
-                # Create SearchResult-like object
+                # Create SearchResult-like object with both similarity and distance
                 search_result = type('SearchResult', (), {
                     'node_id': result['node_id'],
                     'similarity': result['similarity_score'],
+                    'distance': 1.0 - result['similarity_score'],  # Convert similarity to distance
                     'content': result['content'],
                     'node_type': result['node_type'],
                     'metadata': result['metadata']

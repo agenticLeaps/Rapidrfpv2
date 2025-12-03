@@ -601,20 +601,24 @@ class IndexingPipeline:
                     
                     # Prepare embedding data for bulk storage
                     embedding_data = []
-                    for node, embedding in zip(all_nodes, embeddings):
-                        if node.embeddings:  # Only include nodes that successfully got embeddings
+                    for i, (node, embedding) in enumerate(zip(all_nodes, embeddings)):
+                        if embedding is not None and len(embedding) > 0:  # Check the actual embedding, not node.embeddings
                             embedding_data.append({
                                 'node_id': node.id,
                                 'node_type': node.type.value,
                                 'content': node.content,
-                                'embedding': node.embeddings,
+                                'embedding': embedding,  # Use the embedding from the array, not node.embeddings
                                 'metadata': node.metadata,
                                 'chunk_index': node.metadata.get('chunk_index', 0)
                             })
                     
+                    logger.info(f"📊 Prepared {len(embedding_data)} embedding records for storage")
+                    
                     if embedding_data:
                         # Check if we have org/file context
                         if hasattr(self, 'current_org_id') and hasattr(self, 'current_file_id'):
+                            logger.info(f"🔧 Using incremental context: org_id={self.current_org_id}, file_id={self.current_file_id}")
+                            
                             # Get storage service and store embeddings
                             from src.storage.neon_storage import NeonDBStorage
                             storage = NeonDBStorage()
@@ -624,6 +628,8 @@ class IndexingPipeline:
                             if embedding_data and embedding_data[0].get('metadata'):
                                 user_id = embedding_data[0]['metadata'].get('user_id', 'unknown')
                             
+                            logger.info(f"🗄️ Calling bulk_store_embeddings with {len(embedding_data)} items...")
+                            
                             storage_result = storage.bulk_store_embeddings(
                                 org_id=self.current_org_id,
                                 file_id=self.current_file_id,
@@ -631,11 +637,15 @@ class IndexingPipeline:
                                 embedding_data=embedding_data
                             )
                             
+                            logger.info(f"📤 Storage result: {storage_result}")
+                            
                             if storage_result.get('success'):
                                 logger.info(f"✅ Stored {storage_result.get('stored_count', 0)} embeddings in database")
                             else:
-                                logger.warning(f"Failed to store embeddings in database: {storage_result.get('error')}")
+                                logger.error(f"❌ Failed to store embeddings in database: {storage_result.get('error')}")
                         else:
+                            logger.info("🔧 No incremental context, checking node metadata...")
+                            
                             # For non-incremental mode, we can still store using default values from first node
                             if embedding_data and embedding_data[0].get('metadata'):
                                 node_metadata = embedding_data[0]['metadata']
@@ -643,9 +653,13 @@ class IndexingPipeline:
                                 file_id = node_metadata.get('file_id') 
                                 user_id = node_metadata.get('user_id', 'unknown')
                                 
+                                logger.info(f"🔍 Node metadata: org_id={org_id}, file_id={file_id}, user_id={user_id}")
+                                
                                 if org_id and file_id:
                                     from src.storage.neon_storage import NeonDBStorage
                                     storage = NeonDBStorage()
+                                    
+                                    logger.info(f"🗄️ Calling bulk_store_embeddings (from metadata) with {len(embedding_data)} items...")
                                     
                                     storage_result = storage.bulk_store_embeddings(
                                         org_id=org_id,
@@ -654,14 +668,16 @@ class IndexingPipeline:
                                         embedding_data=embedding_data
                                     )
                                     
+                                    logger.info(f"📤 Storage result (from metadata): {storage_result}")
+                                    
                                     if storage_result.get('success'):
                                         logger.info(f"✅ Stored {storage_result.get('stored_count', 0)} embeddings in database (from node metadata)")
                                     else:
-                                        logger.warning(f"Failed to store embeddings in database: {storage_result.get('error')}")
+                                        logger.error(f"❌ Failed to store embeddings in database: {storage_result.get('error')}")
                                 else:
-                                    logger.warning("Missing org_id/file_id in node metadata, skipping database storage")
+                                    logger.warning(f"❌ Missing org_id/file_id in node metadata, skipping database storage")
                             else:
-                                logger.warning("No embedding data or metadata available for database storage")
+                                logger.warning(f"❌ No embedding data or metadata available for database storage")
                             
             except Exception as e:
                 logger.warning(f"Failed to store embeddings in database: {e}")
