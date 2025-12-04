@@ -24,6 +24,7 @@ services:
     scaling:
       minInstances: 1
       maxInstances: 3
+      targetCPUPercent: 70
     plan: standard  # Need at least standard plan for sufficient RAM
 
   # Celery Worker Service
@@ -49,6 +50,7 @@ services:
     scaling:
       minInstances: 1
       maxInstances: 2
+      targetCPUPercent: 80
     plan: standard  # Need sufficient RAM for document processing
 
   # Celery Beat Scheduler (Optional - for cleanup tasks)
@@ -70,6 +72,7 @@ services:
     scaling:
       minInstances: 1
       maxInstances: 1
+      targetCPUPercent: 70
     plan: starter  # Scheduler doesn't need much resources
 
   # Redis Database
