@@ -127,16 +127,16 @@ class NodeRAGServiceManager:
         
         logger.info(f"📊 System RAM: {total_ram_mb}MB")
         
-        # Set memory limit based on available RAM
+        # Set memory limit based on available RAM - conservative for high-traffic
         if total_ram_mb < 2048:
-            max_memory_kb = 1200000  # 1.2GB for low RAM
-            logger.warning("⚠️ Low RAM environment - setting conservative memory limit: 1.2GB")
+            max_memory_kb = 800000   # 800MB for low RAM - very conservative
+            logger.warning("⚠️ Low RAM environment - setting conservative memory limit: 800MB")
         elif total_ram_mb < 4096:
-            max_memory_kb = 1500000  # 1.5GB for standard
-            logger.info("📊 Standard RAM environment - setting memory limit: 1.5GB")
+            max_memory_kb = 1000000  # 1GB for standard - conservative for high traffic
+            logger.info("📊 Standard RAM environment - setting memory limit: 1GB")
         else:
-            max_memory_kb = 2000000  # 2GB for high RAM
-            logger.info("🚀 High RAM environment - setting memory limit: 2GB")
+            max_memory_kb = 1500000  # 1.5GB for high RAM
+            logger.info("🚀 High RAM environment - setting memory limit: 1.5GB")
         
         # Start Celery worker
         cmd = [

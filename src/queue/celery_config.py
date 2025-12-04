@@ -26,11 +26,11 @@ celery_app.conf.update(
         'src.queue.tasks.cleanup_task': {'queue': 'cleanup'},
     },
     
-    # Worker settings for 2GB RAM constraint
-    worker_max_tasks_per_child=1,  # Restart worker after each task (prevents memory leaks)
+    # Worker settings for 2GB RAM constraint - aggressive memory management
+    worker_max_tasks_per_child=1,  # Restart worker after EVERY task (prevents memory accumulation)
     worker_prefetch_multiplier=1,  # Only fetch one task at a time
     task_acks_late=True,  # Acknowledge task only after completion
-    worker_max_memory_per_child=1500000,  # 1.5GB limit per worker (in KB)
+    worker_max_memory_per_child=800000,  # 800MB limit per worker (in KB) - conservative limit
     
     # Task settings - Use JSON to avoid serialization issues
     task_serializer='json',

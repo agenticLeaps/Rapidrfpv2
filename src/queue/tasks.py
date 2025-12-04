@@ -323,10 +323,27 @@ def process_document_task(self, org_id: str, file_id: str, user_id: str,
         raise
     
     finally:
-        # Always cleanup
+        # Aggressive cleanup to prevent memory accumulation
         if pipeline:
+            # Clear pipeline components
+            pipeline.graph_manager = None
+            pipeline.llm_service = None
+            pipeline.hnsw_service = None
             pipeline = None
-        memory_cleanup()
+        
+        # Force multiple garbage collections
+        for _ in range(3):
+            gc.collect()
+        
+        # Clear any remaining references
+        import sys
+        if 'noderag_service' in locals():
+            noderag_service = None
+        if 'storage' in locals():
+            storage = None
+            
+        final_memory = get_memory_usage()
+        logger.info(f"🧹 Task cleanup complete - Final memory: {final_memory:.2f} MB")
 
 @celery_app.task(name='src.queue.tasks.cleanup_task')
 def cleanup_task():
