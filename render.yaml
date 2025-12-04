@@ -71,7 +71,7 @@ services:
         value: .
     scaling:
       minInstances: 1
-      maxInstances: 1
+      maxInstances: 2
       targetCPUPercent: 70
     plan: starter  # Scheduler doesn't need much resources
 
