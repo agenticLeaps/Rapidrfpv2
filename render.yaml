@@ -1,0 +1,79 @@
+# Render.com Deployment Configuration for NodeRAG Queue System
+
+services:
+  # Main API Service
+  - type: web
+    name: noderag-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python start_noderag_service.py
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: noderag-redis
+          property: connectionString
+      - key: PYTHONPATH
+        value: .
+      - key: CELERY_OPTIMIZATION
+        value: 1
+      - key: PYTHONUNBUFFERED
+        value: 1
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+    plan: standard  # Need at least standard plan for sufficient RAM
+
+  # Celery Worker Service
+  - type: worker
+    name: noderag-worker
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python start_noderag_service.py
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: noderag-redis
+          property: connectionString
+      - key: NODERAG_SERVICE_TYPE
+        value: worker
+      - key: PYTHONPATH
+        value: .
+      - key: CELERY_OPTIMIZATION
+        value: 1
+      - key: PYTHONUNBUFFERED
+        value: 1
+    scaling:
+      minInstances: 1
+      maxInstances: 2
+    plan: standard  # Need sufficient RAM for document processing
+
+  # Celery Beat Scheduler (Optional - for cleanup tasks)
+  - type: worker
+    name: noderag-scheduler
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python start_noderag_service.py
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: noderag-redis
+          property: connectionString
+      - key: NODERAG_SERVICE_TYPE
+        value: scheduler
+      - key: PYTHONPATH
+        value: .
+    scaling:
+      minInstances: 1
+      maxInstances: 1
+    plan: starter  # Scheduler doesn't need much resources
+
+  # Redis Database
+  - type: redis
+    name: noderag-redis
+    plan: starter  # 25MB should be sufficient for queue data
+    ipAllowList: []  # Allow access from all services

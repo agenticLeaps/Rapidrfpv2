@@ -124,7 +124,7 @@ def health_check():
 
 @app.route("/api/v1/process-document", methods=["POST"])
 def process_document():
-    """Process document chunks through NodeRAG pipeline"""
+    """Process document chunks through NodeRAG pipeline using Celery queue"""
     try:
         data = request.get_json()
         
@@ -139,41 +139,90 @@ def process_document():
         user_id = data["user_id"]
         chunks = data["chunks"]
         callback_url = data.get("callback_url")
+        use_queue = data.get("use_queue", True)  # Default to queue mode
         
-        logger.info(f"🚀 Starting NodeRAG processing: file_id={file_id}, org_id={org_id}, chunks={len(chunks)}")
+        logger.info(f"🚀 NodeRAG processing request: file_id={file_id}, org_id={org_id}, chunks={len(chunks)}, use_queue={use_queue}")
         
-        # Store initial status
-        with processing_lock:
-            processing_status[file_id] = {
-                "status": "processing",
-                "phase": "initialization",
-                "progress": 0,
-                "started_at": time.time(),
-                "org_id": org_id,
-                "user_id": user_id
-            }
+        if use_queue:
+            # Use Celery queue for memory-efficient processing
+            from src.queue.queue_manager import queue_manager
+            
+            result = queue_manager.submit_document_processing(
+                org_id=org_id,
+                file_id=file_id,
+                user_id=user_id,
+                chunks=chunks,
+                callback_url=callback_url
+            )
+            
+            if result["success"]:
+                # Store task mapping for status lookup
+                with processing_lock:
+                    processing_status[file_id] = {
+                        "status": "queued",
+                        "phase": "queued",
+                        "progress": 0,
+                        "started_at": time.time(),
+                        "org_id": org_id,
+                        "user_id": user_id,
+                        "task_id": result["task_id"],
+                        "use_queue": True
+                    }
+                
+                return jsonify({
+                    "message": "Document processing queued",
+                    "file_id": file_id,
+                    "task_id": result["task_id"],
+                    "status": "queued",
+                    "queue_mode": True,
+                    "estimated_time": result["estimated_time"]
+                }), 202
+            else:
+                return jsonify({
+                    "error": "Failed to queue processing task",
+                    "message": result.get("message", "Unknown error"),
+                    "details": result.get("error")
+                }), 500
         
-        # Send initial webhook
-        if callback_url:
-            send_webhook(callback_url, "processing", {
+        else:
+            # Fallback to direct processing (not recommended for production)
+            logger.warning(f"⚠️ Using direct processing mode for {file_id} - may cause memory issues")
+            
+            # Store initial status
+            with processing_lock:
+                processing_status[file_id] = {
+                    "status": "processing",
+                    "phase": "initialization", 
+                    "progress": 0,
+                    "started_at": time.time(),
+                    "org_id": org_id,
+                    "user_id": user_id,
+                    "use_queue": False
+                }
+            
+            # Send initial webhook
+            if callback_url:
+                send_webhook(callback_url, "processing", {
+                    "file_id": file_id,
+                    "user_id": user_id,
+                    "phase": "initialization",
+                    "progress": 0
+                })
+            
+            # Start background processing
+            def process_async():
+                process_document_pipeline(org_id, file_id, user_id, chunks, callback_url)
+            
+            threading.Thread(target=process_async, daemon=True).start()
+            
+            return jsonify({
+                "message": "Document processing started (direct mode)",
                 "file_id": file_id,
-                "user_id": user_id,
-                "phase": "initialization",
-                "progress": 0
-            })
-        
-        # Start background processing
-        def process_async():
-            process_document_pipeline(org_id, file_id, user_id, chunks, callback_url)
-        
-        threading.Thread(target=process_async, daemon=True).start()
-        
-        return jsonify({
-            "message": "Document processing started",
-            "file_id": file_id,
-            "status": "processing",
-            "estimated_time": "2-5 minutes"
-        }), 202
+                "status": "processing",
+                "queue_mode": False,
+                "warning": "Direct mode may cause memory issues with concurrent requests",
+                "estimated_time": "2-5 minutes"
+            }), 202
         
     except Exception as e:
         logger.error(f"❌ Process document error: {e}")
@@ -513,7 +562,7 @@ def delete_embeddings():
 
 @app.route("/api/v1/status/<file_id>", methods=["GET"])
 def get_status(file_id: str):
-    """Get processing status for a file"""
+    """Get processing status for a file (supports both queue and direct processing)"""
     try:
         with processing_lock:
             status = processing_status.get(file_id)
@@ -521,13 +570,84 @@ def get_status(file_id: str):
         if not status:
             return jsonify({"error": "File not found"}), 404
         
-        return jsonify({
-            "file_id": file_id,
-            **status
-        })
+        # If using queue mode, get status from Celery
+        if status.get("use_queue") and status.get("task_id"):
+            from src.queue.queue_manager import queue_manager
+            
+            task_status = queue_manager.get_task_status(status["task_id"])
+            
+            # Merge with local status
+            combined_status = {
+                "file_id": file_id,
+                "queue_mode": True,
+                "task_id": status["task_id"],
+                "started_at": status.get("started_at"),
+                "org_id": status.get("org_id"),
+                "user_id": status.get("user_id"),
+                **task_status
+            }
+            
+            return jsonify(combined_status)
+        
+        else:
+            # Direct processing mode
+            return jsonify({
+                "file_id": file_id,
+                "queue_mode": False,
+                **status
+            })
         
     except Exception as e:
         logger.error(f"❌ Status check error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/v1/queue/stats", methods=["GET"])
+def get_queue_stats():
+    """Get queue statistics"""
+    try:
+        from src.queue.queue_manager import queue_manager
+        stats = queue_manager.get_queue_stats()
+        return jsonify(stats)
+        
+    except Exception as e:
+        logger.error(f"❌ Queue stats error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/v1/queue/cancel/<task_id>", methods=["POST"])
+def cancel_task(task_id: str):
+    """Cancel a queued processing task"""
+    try:
+        from src.queue.queue_manager import queue_manager
+        result = queue_manager.cancel_task(task_id)
+        
+        if result["success"]:
+            return jsonify(result)
+        else:
+            return jsonify(result), 500
+            
+    except Exception as e:
+        logger.error(f"❌ Cancel task error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/v1/queue/purge", methods=["POST"])
+def purge_queue():
+    """Purge all pending tasks from queue (admin only)"""
+    try:
+        # Add admin check here if needed
+        admin_key = request.headers.get("X-Admin-Key")
+        if admin_key != os.getenv("ADMIN_KEY"):
+            return jsonify({"error": "Unauthorized"}), 401
+            
+        from src.queue.queue_manager import queue_manager
+        result = queue_manager.purge_queue()
+        
+        if result["success"]:
+            return jsonify(result)
+        else:
+            return jsonify(result), 500
+            
+    except Exception as e:
+        logger.error(f"❌ Purge queue error: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
