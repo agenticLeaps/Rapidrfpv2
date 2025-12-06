@@ -411,7 +411,11 @@ class AdvancedSearchSystem:
                     if hasattr(node, 'metadata') and node.metadata:
                         file_id = node.metadata.get('file_id')
                         if file_id:
-                            source_files.add(file_id)
+                            # Handle both string and list types
+                            if isinstance(file_id, list):
+                                source_files.update(file_id)
+                            else:
+                                source_files.add(file_id)
 
             retrieved_info = "\n\n".join(context_parts)
 
