@@ -479,18 +479,16 @@ def generate_response():
             }), 500
         
         logger.info(f"✅ NodeRAG response generated successfully for org {org_id}")
-        
+
+        # Return response in expected format: response, sources, usage
         return jsonify({
-            "success": True,
             "response": search_result['answer'],
-            "context": {
-                "retrieved_nodes": search_result.get('retrieved_nodes', 0),
-                "context_length": search_result.get('context_length', 0),
-                "retrieval_metadata": search_result.get('retrieval_metadata', {}),
-                "org_id": org_id,
-                "query": query
-            },
-            "metadata": search_result.get('retrieval_metadata', {})
+            "sources": search_result.get('sources', []),
+            "usage": search_result.get('usage', {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0
+            })
         })
         
     except Exception as e:

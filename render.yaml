@@ -25,7 +25,7 @@ services:
       minInstances: 1
       maxInstances: 3
       targetCPUPercent: 70
-    plan: standard  # Need at least standard plan for sufficient RAM
+    plan: pro  # 4GB RAM for high-traffic API handling
 
   # Celery Worker Service
   - type: worker
@@ -51,7 +51,7 @@ services:
       minInstances: 1
       maxInstances: 2
       targetCPUPercent: 80
-    plan: standard  # Need sufficient RAM for document processing
+    plan: pro  # 4GB RAM for high-traffic document processing
 
   # Celery Beat Scheduler (Optional - for cleanup tasks)
   - type: worker

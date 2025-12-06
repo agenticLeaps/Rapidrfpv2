@@ -579,12 +579,27 @@ Title:"""
         try:
             if max_tokens is None:
                 max_tokens = Config.DEFAULT_MAX_LENGTH
-            
+
             if self.llm_provider == "gemini":
                 return self._gemini_chat_completion(prompt, temperature, max_tokens)
             else:
                 return self._openai_chat_completion(prompt, temperature, max_tokens)
-            
+
+        except Exception as e:
+            logger.error(f"{self.llm_provider.upper()} API error: {e}")
+            raise
+
+    def _chat_completion_with_usage(self, prompt: str, temperature: float = 0.7, max_tokens: int = None) -> Dict[str, Any]:
+        """Make chat completion request and return response with token usage."""
+        try:
+            if max_tokens is None:
+                max_tokens = Config.DEFAULT_MAX_LENGTH
+
+            if self.llm_provider == "gemini":
+                return self._gemini_chat_completion_with_usage(prompt, temperature, max_tokens)
+            else:
+                return self._openai_chat_completion_with_usage(prompt, temperature, max_tokens)
+
         except Exception as e:
             logger.error(f"{self.llm_provider.upper()} API error: {e}")
             raise
@@ -620,9 +635,68 @@ Title:"""
                 temperature=temperature,
                 top_p=0.9
             )
-            
+
             return response.choices[0].message.content.strip()
-            
+
+        except Exception as e:
+            logger.error(f"OpenAI API error: {e}")
+            raise
+
+    def _gemini_chat_completion_with_usage(self, prompt: str, temperature: float = 0.7, max_tokens: int = None) -> Dict[str, Any]:
+        """Make Gemini chat completion request with usage tracking."""
+        try:
+            response = self.gemini_client.models.generate_content(
+                model=Config.GEMINI_MODEL,
+                contents=prompt,
+                config={
+                    "temperature": temperature,
+                    "max_output_tokens": max_tokens,
+                    "top_p": 0.9
+                }
+            )
+
+            # Extract usage metadata from Gemini response
+            usage_metadata = {
+                "prompt_tokens": getattr(response.usage_metadata, 'prompt_token_count', 0) if hasattr(response, 'usage_metadata') else 0,
+                "completion_tokens": getattr(response.usage_metadata, 'candidates_token_count', 0) if hasattr(response, 'usage_metadata') else 0,
+                "total_tokens": getattr(response.usage_metadata, 'total_token_count', 0) if hasattr(response, 'usage_metadata') else 0
+            }
+
+            return {
+                "response": response.text.strip(),
+                "usage": usage_metadata
+            }
+
+        except Exception as e:
+            logger.error(f"Gemini API error: {e}")
+            raise
+
+    def _openai_chat_completion_with_usage(self, prompt: str, temperature: float = 0.7, max_tokens: int = None) -> Dict[str, Any]:
+        """Make OpenAI chat completion request with usage tracking."""
+        try:
+            response = self.openai_client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=max_tokens,
+                temperature=temperature,
+                top_p=0.9
+            )
+
+            # Extract usage from OpenAI response
+            usage = response.usage
+            usage_metadata = {
+                "prompt_tokens": usage.prompt_tokens,
+                "completion_tokens": usage.completion_tokens,
+                "total_tokens": usage.total_tokens
+            }
+
+            return {
+                "response": response.choices[0].message.content.strip(),
+                "usage": usage_metadata
+            }
+
         except Exception as e:
             logger.error(f"OpenAI API error: {e}")
             raise

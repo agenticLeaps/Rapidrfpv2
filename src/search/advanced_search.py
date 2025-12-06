@@ -378,26 +378,27 @@ class AdvancedSearchSystem:
             search_metadata=search_metadata
         )
     
-    def answer_query(self, 
+    def answer_query(self,
                     query: str,
                     use_structured_prompt: bool = True) -> Dict[str, Any]:
         """
         Generate answer for query using retrieved information.
-        
+
         Args:
             query: User query
             use_structured_prompt: Whether to use structured prompt format
-            
+
         Returns:
             Dictionary with answer and metadata
         """
         try:
             # Perform search
             retrieval_result = self.search(query)
-            
-            # Build context from retrieved nodes
+
+            # Build context from retrieved nodes and track sources
             context_parts = []
-            
+            source_files = set()
+
             for node_id in retrieval_result.final_nodes:
                 node = self.graph_manager.get_node(node_id)
                 if node:
@@ -405,31 +406,45 @@ class AdvancedSearchSystem:
                         context_parts.append(f"[{node.type.value}] {node.content}")
                     else:
                         context_parts.append(node.content)
-            
+
+                    # Extract file_id from node metadata
+                    if hasattr(node, 'metadata') and node.metadata:
+                        file_id = node.metadata.get('file_id')
+                        if file_id:
+                            source_files.add(file_id)
+
             retrieved_info = "\n\n".join(context_parts)
-            
-            # Generate answer
+
+            # Generate answer with usage tracking
             answer_prompt = self.llm_service.prompt_manager.answer_generation.format(
                 info=retrieved_info,
                 query=query
             )
-            
-            response = self.llm_service._chat_completion(answer_prompt, temperature=0.7)
-            
+
+            response_data = self.llm_service._chat_completion_with_usage(answer_prompt, temperature=0.7)
+
             return {
                 'query': query,
-                'answer': response,
+                'answer': response_data['response'],
                 'retrieval_metadata': retrieval_result.search_metadata,
                 'retrieved_nodes': len(retrieval_result.final_nodes),
-                'context_length': len(retrieved_info)
+                'context_length': len(retrieved_info),
+                'sources': list(source_files),  # Add sources list
+                'usage': response_data['usage']  # Add token usage
             }
-            
+
         except Exception as e:
             logger.error(f"Error generating answer: {e}")
             return {
                 'query': query,
                 'answer': f"Error generating answer: {str(e)}",
-                'error': True
+                'error': True,
+                'sources': [],
+                'usage': {
+                    'prompt_tokens': 0,
+                    'completion_tokens': 0,
+                    'total_tokens': 0
+                }
             }
     
     def update_graph(self, new_graph_manager: GraphManager):
