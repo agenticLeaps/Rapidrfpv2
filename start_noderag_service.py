@@ -20,7 +20,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class NodeRAGServiceManager:
-    """Main service manager for NodeRAG deployment"""
+    """Main service manager for NodeRAG deployment """
     
     def __init__(self):
         self.service_type = os.getenv('NODERAG_SERVICE_TYPE', 'api')
