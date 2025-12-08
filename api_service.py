@@ -468,7 +468,8 @@ def generate_response():
         # Perform the search and generate response
         search_result = advanced_search.answer_query(
             query=query,
-            use_structured_prompt=True
+            use_structured_prompt=True,
+            conversation_history=conversation_history
         )
         
         if search_result.get('error'):

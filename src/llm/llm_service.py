@@ -589,16 +589,16 @@ Title:"""
             logger.error(f"{self.llm_provider.upper()} API error: {e}")
             raise
 
-    def _chat_completion_with_usage(self, prompt: str, temperature: float = 0.7, max_tokens: int = None) -> Dict[str, Any]:
+    def _chat_completion_with_usage(self, prompt: str, temperature: float = 0.7, max_tokens: int = None, conversation_history: List[Dict[str, str]] = None) -> Dict[str, Any]:
         """Make chat completion request and return response with token usage."""
         try:
             if max_tokens is None:
                 max_tokens = Config.DEFAULT_MAX_LENGTH
 
             if self.llm_provider == "gemini":
-                return self._gemini_chat_completion_with_usage(prompt, temperature, max_tokens)
+                return self._gemini_chat_completion_with_usage(prompt, temperature, max_tokens, conversation_history)
             else:
-                return self._openai_chat_completion_with_usage(prompt, temperature, max_tokens)
+                return self._openai_chat_completion_with_usage(prompt, temperature, max_tokens, conversation_history)
 
         except Exception as e:
             logger.error(f"{self.llm_provider.upper()} API error: {e}")
@@ -642,12 +642,27 @@ Title:"""
             logger.error(f"OpenAI API error: {e}")
             raise
 
-    def _gemini_chat_completion_with_usage(self, prompt: str, temperature: float = 0.7, max_tokens: int = None) -> Dict[str, Any]:
+    def _gemini_chat_completion_with_usage(self, prompt: str, temperature: float = 0.7, max_tokens: int = None, conversation_history: List[Dict[str, str]] = None) -> Dict[str, Any]:
         """Make Gemini chat completion request with usage tracking."""
         try:
+            # Build content with conversation history
+            # For Gemini, we need to format conversation history differently
+            if conversation_history:
+                # Combine history into a single context string
+                history_text = ""
+                for msg in conversation_history:
+                    role = msg["role"].capitalize()
+                    content = msg["content"]
+                    history_text += f"{role}: {content}\n\n"
+
+                # Prepend history to current prompt
+                full_prompt = f"{history_text}User: {prompt}"
+            else:
+                full_prompt = prompt
+
             response = self.gemini_client.models.generate_content(
                 model=Config.GEMINI_MODEL,
-                contents=prompt,
+                contents=full_prompt,
                 config={
                     "temperature": temperature,
                     "max_output_tokens": max_tokens,
@@ -671,14 +686,22 @@ Title:"""
             logger.error(f"Gemini API error: {e}")
             raise
 
-    def _openai_chat_completion_with_usage(self, prompt: str, temperature: float = 0.7, max_tokens: int = None) -> Dict[str, Any]:
+    def _openai_chat_completion_with_usage(self, prompt: str, temperature: float = 0.7, max_tokens: int = None, conversation_history: List[Dict[str, str]] = None) -> Dict[str, Any]:
         """Make OpenAI chat completion request with usage tracking."""
         try:
+            # Build messages array
+            messages = []
+
+            # Add conversation history if provided
+            if conversation_history:
+                messages.extend(conversation_history)
+
+            # Add the current prompt as user message
+            messages.append({"role": "user", "content": prompt})
+
             response = self.openai_client.chat.completions.create(
                 model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
+                messages=messages,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 top_p=0.9

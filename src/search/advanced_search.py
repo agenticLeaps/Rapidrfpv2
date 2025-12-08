@@ -378,15 +378,94 @@ class AdvancedSearchSystem:
             search_metadata=search_metadata
         )
     
+    def _parse_conversation_history(self, conversation_history: str) -> List[Dict[str, str]]:
+        """
+        Parse conversation history string into LLM message format.
+
+        Expected formats:
+        1. "user: message\\nassistant: response\\nuser: next message\\n..."
+        2. "User: message\\nAssistant: response\\n..."
+        3. JSON string: '[{"role": "user", "content": "..."}, ...]'
+
+        Args:
+            conversation_history: String containing conversation history
+
+        Returns:
+            List of message dictionaries with 'role' and 'content' keys
+        """
+        messages = []
+
+        if not conversation_history or not conversation_history.strip():
+            return messages
+
+        # Try to parse as JSON first (most structured format)
+        try:
+            import json
+            parsed = json.loads(conversation_history)
+            if isinstance(parsed, list):
+                for msg in parsed:
+                    if isinstance(msg, dict) and "role" in msg and "content" in msg:
+                        if msg["role"] in ["user", "assistant"]:
+                            messages.append({"role": msg["role"], "content": msg["content"]})
+                return messages
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        # Parse as text format: "user: ...\\nassistant: ...\\n"
+        lines = conversation_history.strip().split('\n')
+        current_role = None
+        current_content = []
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            # Check if line starts with a role indicator
+            lower_line = line.lower()
+            if lower_line.startswith('user:') or lower_line.startswith('user :'):
+                # Save previous message if exists
+                if current_role and current_content:
+                    messages.append({
+                        "role": current_role,
+                        "content": '\n'.join(current_content).strip()
+                    })
+                current_role = "user"
+                current_content = [line.split(':', 1)[1].strip() if ':' in line else '']
+            elif lower_line.startswith('assistant:') or lower_line.startswith('assistant :'):
+                # Save previous message if exists
+                if current_role and current_content:
+                    messages.append({
+                        "role": current_role,
+                        "content": '\n'.join(current_content).strip()
+                    })
+                current_role = "assistant"
+                current_content = [line.split(':', 1)[1].strip() if ':' in line else '']
+            else:
+                # Continuation of current message
+                if current_role:
+                    current_content.append(line)
+
+        # Don't forget the last message
+        if current_role and current_content:
+            messages.append({
+                "role": current_role,
+                "content": '\n'.join(current_content).strip()
+            })
+
+        return messages
+
     def answer_query(self,
                     query: str,
-                    use_structured_prompt: bool = True) -> Dict[str, Any]:
+                    use_structured_prompt: bool = True,
+                    conversation_history: str = "") -> Dict[str, Any]:
         """
         Generate answer for query using retrieved information.
 
         Args:
             query: User query
             use_structured_prompt: Whether to use structured prompt format
+            conversation_history: Previous conversation turns for context
 
         Returns:
             Dictionary with answer and metadata
@@ -419,13 +498,20 @@ class AdvancedSearchSystem:
 
             retrieved_info = "\n\n".join(context_parts)
 
-            # Generate answer with usage tracking
+            # Parse conversation history into messages
+            history_messages = self._parse_conversation_history(conversation_history)
+
+            # Generate answer with usage tracking and conversation history
             answer_prompt = self.llm_service.prompt_manager.answer_generation.format(
                 info=retrieved_info,
                 query=query
             )
 
-            response_data = self.llm_service._chat_completion_with_usage(answer_prompt, temperature=0.7)
+            response_data = self.llm_service._chat_completion_with_usage(
+                answer_prompt,
+                temperature=0.7,
+                conversation_history=history_messages
+            )
 
             return {
                 'query': query,
