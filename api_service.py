@@ -520,35 +520,49 @@ def delete_embeddings():
         storage = noderag_service.get_neon_storage()
         
         if file_id:
-            # Delete specific file embeddings
+            # Delete specific file embeddings and graph nodes
             result = storage.delete_file_data(org_id, file_id)
-            
+
             if result.get("success"):
-                logger.info(f"✅ Deleted embeddings for file {file_id} in org {org_id}")
+                logger.info(f"✅ Deleted data for file {file_id} in org {org_id}")
                 return jsonify({
                     "success": True,
-                    "message": f"Deleted embeddings for file {file_id}",
+                    "message": f"Successfully deleted all data for file {file_id}",
                     "org_id": org_id,
                     "file_id": file_id,
                     "embeddings_deleted": result.get("deleted_count", 0),
-                    "graphs_deleted": result.get("graphs_deleted", 0)
+                    "graph_nodes_removed": result.get("nodes_removed", 0),
+                    "graph_updated": result.get("graph_updated", False),
+                    "delete_time_seconds": result.get("delete_time_seconds", 0)
                 })
             else:
                 return jsonify({
-                    "error": "Failed to delete file embeddings", 
+                    "error": "Failed to delete file data",
                     "message": result.get("error", "Unknown error"),
                     "org_id": org_id,
                     "file_id": file_id
                 }), 500
         else:
-            # Delete all org embeddings - use existing delete_file_data for now
-            # TODO: Add delete_org_embeddings method to storage
-            logger.warning("Full org deletion not implemented yet, use file_id parameter")
-            return jsonify({
-                "error": "Full organization deletion not implemented",
-                "message": "Please provide file_id parameter to delete specific file",
-                "org_id": org_id
-            }), 400
+            # Delete all org data (embeddings, graphs, processing records)
+            result = storage.delete_org_data(org_id)
+
+            if result.get("success"):
+                logger.info(f"✅ Deleted all data for org {org_id}")
+                return jsonify({
+                    "success": True,
+                    "message": f"Successfully deleted all data for organization {org_id}",
+                    "org_id": org_id,
+                    "embeddings_deleted": result.get("embeddings_deleted", 0),
+                    "graphs_deleted": result.get("graphs_deleted", 0),
+                    "processing_records_deleted": result.get("processing_records_deleted", 0),
+                    "delete_time_seconds": result.get("delete_time_seconds", 0)
+                })
+            else:
+                return jsonify({
+                    "error": "Failed to delete organization data",
+                    "message": result.get("error", "Unknown error"),
+                    "org_id": org_id
+                }), 500
         
     except Exception as e:
         logger.error(f"❌ Delete embeddings error: {e}")

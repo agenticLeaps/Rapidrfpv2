@@ -115,6 +115,66 @@ Malformed relationship: {relationship}
 Expected format: [source_entity, relationship_type, target_entity]
 """
 
+# Query Reformulation Prompt (for agentic query enhancement with conversation context)
+QUERY_REFORMULATION_PROMPT = """
+You are an intelligent query reformulation assistant. Your task is to analyze the current user query in the context of the conversation history and reformulate it into a standalone, self-contained query that can be understood without additional context.
+
+INSTRUCTIONS:
+1. Resolve ALL coreferences (pronouns like "he", "she", "his", "her", "it", "they", "them", etc.) by replacing them with the actual entity names from the conversation history
+2. Extract and include key entities and context from previous conversation turns that are relevant to the current query
+3. Make the query explicit and specific - add missing information from conversation context
+4. If the query is already self-contained and complete, return it as is
+5. Return ONLY the reformulated query text without any explanations, prefixes, or metadata
+
+EXAMPLES:
+
+Example 1:
+Conversation History:
+User: "Where did Raghavendra Vattikuti complete his education?"
+Assistant: "Raghavendra Vattikuti studied at Vishnu Institute of Technology, Bhimavaram."
+
+Current Query: "What are his technical skills?"
+
+Reformulated Query: "What are the technical skills of Raghavendra Vattikuti?"
+
+Example 2:
+Conversation History:
+User: "Tell me about Google's headquarters"
+Assistant: "Google's headquarters is located in Mountain View, California, known as the Googleplex."
+
+Current Query: "When was it established?"
+
+Reformulated Query: "When was Google's headquarters (the Googleplex) in Mountain View, California established?"
+
+Example 3:
+Conversation History:
+User: "What is machine learning?"
+Assistant: "Machine learning is a subset of artificial intelligence..."
+
+Current Query: "What are the main applications?"
+
+Reformulated Query: "What are the main applications of machine learning?"
+
+Example 4:
+Conversation History:
+User: "Who is the CEO of Tesla?"
+Assistant: "Elon Musk is the CEO of Tesla."
+
+Current Query: "Tell me about his other companies"
+
+Reformulated Query: "Tell me about Elon Musk's other companies besides Tesla"
+
+###########
+ACTUAL DATA:
+###########
+
+Conversation History:
+{conversation_history}
+
+Current Query: {query}
+
+Reformulated Query:"""
+
 # Answer Generation Prompt (for query answering)
 ANSWER_GENERATION_PROMPT = """
 You are a helpful AI assistant that ONLY uses the provided retrieved information to answer questions. Do NOT use any external knowledge or information not explicitly provided below.
@@ -190,6 +250,7 @@ PROMPT_TEMPLATES = {
     "enhanced_attribute_generation": ENHANCED_ATTRIBUTE_GENERATION_PROMPT,
     "enhanced_community_summary": ENHANCED_COMMUNITY_SUMMARY_PROMPT,
     "query_decomposition": QUERY_DECOMPOSITION_PROMPT,
+    "query_reformulation": QUERY_REFORMULATION_PROMPT,
     "relationship_reconstruction": RELATIONSHIP_RECONSTRUCTION_PROMPT,
     "answer_generation": ANSWER_GENERATION_PROMPT
 }
@@ -231,12 +292,17 @@ class PromptManager:
     def query_decomposition(self) -> str:
         """Get query decomposition prompt."""
         return self.templates["query_decomposition"]
-    
+
     @property
     def query_decomposition_json(self) -> Dict[str, Any]:
         """Get JSON format for query decomposition."""
         return self.json_formats["query_decomposition"]
-    
+
+    @property
+    def query_reformulation(self) -> str:
+        """Get query reformulation prompt."""
+        return self.templates["query_reformulation"]
+
     @property
     def relationship_reconstruction(self) -> str:
         """Get relationship reconstruction prompt."""

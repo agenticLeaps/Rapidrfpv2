@@ -470,47 +470,178 @@ class NeonDBStorage:
     def delete_file_data(self, org_id: str, file_id: str) -> Dict[str, Any]:
         """Delete all data for a specific file"""
         return asyncio.run(self._delete_file_data_async(org_id, file_id))
-    
-    async def _delete_file_data_async(self, org_id: str, file_id: str) -> Dict[str, Any]:
-        """Async implementation of delete_file_data with optimized connection pooling"""
+
+    def delete_org_data(self, org_id: str) -> Dict[str, Any]:
+        """Delete all data for an entire organization"""
+        return asyncio.run(self._delete_org_data_async(org_id))
+
+    async def _delete_org_data_async(self, org_id: str) -> Dict[str, Any]:
+        """Async implementation of delete_org_data - deletes all org data"""
         delete_start = time.time()
-        
+
         try:
             conn = await self._get_connection()
-            
+
             try:
                 async with conn.transaction():
-                    # Delete embeddings
+                    # 1. Delete all embeddings for this org
+                    embeddings_result = await conn.execute(
+                        "DELETE FROM noderag_embeddings WHERE org_id = $1",
+                        org_id
+                    )
+
+                    embeddings_deleted = int(embeddings_result.split()[-1]) if embeddings_result.split()[-1].isdigit() else 0
+
+                    # 2. Delete org graph
+                    graph_result = await conn.execute(
+                        "DELETE FROM noderag_graphs WHERE org_id = $1",
+                        org_id
+                    )
+
+                    graph_deleted = int(graph_result.split()[-1]) if graph_result.split()[-1].isdigit() else 0
+
+                    # 3. Delete file processing records
+                    processing_result = await conn.execute(
+                        "DELETE FROM noderag_file_processing WHERE org_id = $1",
+                        org_id
+                    )
+
+                    processing_deleted = int(processing_result.split()[-1]) if processing_result.split()[-1].isdigit() else 0
+
+                    delete_time = time.time() - delete_start
+                    logger.info(f"🗑️ Deleted entire org {org_id}: {embeddings_deleted} embeddings, {graph_deleted} graphs, {processing_deleted} processing records in {delete_time:.2f}s")
+
+                    return {
+                        "success": True,
+                        "embeddings_deleted": embeddings_deleted,
+                        "graphs_deleted": graph_deleted,
+                        "processing_records_deleted": processing_deleted,
+                        "delete_time_seconds": delete_time
+                    }
+
+            finally:
+                await self._release_connection(conn)
+
+        except Exception as e:
+            logger.error(f"❌ Delete org error: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "success": False,
+                "error": str(e),
+                "embeddings_deleted": 0,
+                "delete_time_seconds": time.time() - delete_start
+            }
+    
+    async def _delete_file_data_async(self, org_id: str, file_id: str) -> Dict[str, Any]:
+        """Async implementation of delete_file_data with org-level graph handling"""
+        delete_start = time.time()
+
+        try:
+            conn = await self._get_connection()
+
+            try:
+                async with conn.transaction():
+                    # 1. Delete embeddings for this file
                     embeddings_result = await conn.execute(
                         "DELETE FROM noderag_embeddings WHERE org_id = $1 AND file_id = $2",
                         org_id, file_id
                     )
-                    
-                    # Delete graph data
-                    graph_result = await conn.execute(
-                        "DELETE FROM noderag_graphs WHERE org_id = $1 AND file_id = $2",
-                        org_id, file_id
-                    )
-                    
-                    # Extract deleted count from result
+
                     embeddings_deleted = int(embeddings_result.split()[-1]) if embeddings_result.split()[-1].isdigit() else 0
-                    graphs_deleted = int(graph_result.split()[-1]) if graph_result.split()[-1].isdigit() else 0
-                    
+
+                    # 2. Load org graph to update it
+                    org_graph_row = await conn.fetchrow(
+                        "SELECT graph_data, processed_files, version, user_id, stats FROM noderag_graphs WHERE org_id = $1",
+                        org_id
+                    )
+
+                    nodes_removed = 0
+                    graph_updated = False
+
+                    if org_graph_row:
+                        try:
+                            # Deserialize graph data
+                            graph_data_dict = pickle.loads(org_graph_row['graph_data'])
+                            processed_files = org_graph_row['processed_files'] if org_graph_row['processed_files'] else []
+
+                            # Check if file is in processed list
+                            if file_id in processed_files:
+                                # Load graph into GraphManager to remove file nodes
+                                from ..graph.graph_manager import GraphManager
+                                graph_manager = GraphManager()
+                                graph_manager.graph = graph_data_dict['graph']
+                                graph_manager.entity_index = graph_data_dict.get('entity_index', {})
+                                graph_manager.community_assignments = graph_data_dict.get('community_assignments', {})
+
+                                # Remove nodes for this file
+                                clear_result = graph_manager.clear_file_nodes(file_id)
+                                nodes_removed = clear_result.get('nodes_removed', 0)
+
+                                # Update processed files list
+                                processed_files.remove(file_id)
+
+                                # Check if any files remain
+                                if len(processed_files) == 0:
+                                    # No files left, delete entire org graph
+                                    await conn.execute(
+                                        "DELETE FROM noderag_graphs WHERE org_id = $1",
+                                        org_id
+                                    )
+                                    logger.info(f"🗑️ Deleted entire org graph for {org_id} (no files remaining)")
+                                    graph_updated = True
+                                else:
+                                    # Re-serialize and update org graph
+                                    updated_graph_data = pickle.dumps({
+                                        'graph': graph_manager.graph,
+                                        'entity_index': dict(graph_manager.entity_index),
+                                        'community_assignments': graph_manager.community_assignments
+                                    })
+
+                                    # Get updated stats
+                                    updated_stats = graph_manager.get_org_stats(processed_files)
+                                    new_version = org_graph_row['version'] + 1
+
+                                    # Update org graph
+                                    await conn.execute("""
+                                        UPDATE noderag_graphs
+                                        SET graph_data = $1,
+                                            processed_files = $2,
+                                            version = $3,
+                                            stats = $4,
+                                            last_incremental_update = CURRENT_TIMESTAMP,
+                                            updated_at = CURRENT_TIMESTAMP
+                                        WHERE org_id = $5
+                                    """, updated_graph_data, json.dumps(processed_files),
+                                         new_version, json.dumps(updated_stats), org_id)
+
+                                    logger.info(f"✅ Updated org graph: removed {nodes_removed} nodes from file {file_id}")
+                                    graph_updated = True
+                            else:
+                                logger.warning(f"File {file_id} not found in processed_files for org {org_id}")
+
+                        except Exception as graph_error:
+                            logger.error(f"Error updating org graph: {graph_error}")
+                            # Continue anyway - embeddings were deleted
+
                     delete_time = time.time() - delete_start
-                    logger.info(f"🗑️ Deleted {embeddings_deleted} embeddings and {graphs_deleted} graphs for file_id={file_id} in {delete_time:.2f}s")
-                    
+                    logger.info(f"🗑️ Deleted {embeddings_deleted} embeddings and {nodes_removed} graph nodes for file_id={file_id} in {delete_time:.2f}s")
+
                     return {
                         "success": True,
                         "deleted_count": embeddings_deleted,
-                        "graphs_deleted": graphs_deleted,
+                        "nodes_removed": nodes_removed,
+                        "graph_updated": graph_updated,
                         "delete_time_seconds": delete_time
                     }
-            
+
             finally:
                 await self._release_connection(conn)
-        
+
         except Exception as e:
             logger.error(f"❌ Delete error: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 "success": False,
                 "error": str(e),

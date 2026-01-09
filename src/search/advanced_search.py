@@ -460,7 +460,7 @@ class AdvancedSearchSystem:
                     use_structured_prompt: bool = True,
                     conversation_history: str = "") -> Dict[str, Any]:
         """
-        Generate answer for query using retrieved information.
+        Generate answer for query using retrieved information with agentic query reformulation.
 
         Args:
             query: User query
@@ -471,8 +471,20 @@ class AdvancedSearchSystem:
             Dictionary with answer and metadata
         """
         try:
-            # Perform search
-            retrieval_result = self.search(query)
+            # Parse conversation history into messages
+            history_messages = self._parse_conversation_history(conversation_history)
+
+            # AGENTIC STEP: Reformulate query using conversation context
+            # This resolves coreferences (pronouns) and adds missing context from history
+            reformulated_query = self.llm_service.reformulate_query_with_context(
+                query, history_messages
+            )
+
+            # Use reformulated query for search
+            search_query = reformulated_query if reformulated_query else query
+
+            # Perform search with reformulated query
+            retrieval_result = self.search(search_query)
 
             # Build context from retrieved nodes and track sources
             context_parts = []

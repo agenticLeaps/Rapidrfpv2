@@ -355,16 +355,80 @@ Relationships:"""
         try:
             prompt = self.prompt_manager.query_decomposition.format(query=query)
             response = self._chat_completion_with_json(
-                prompt, 
+                prompt,
                 json_schema=self.prompt_manager.query_decomposition_json,
                 temperature=0.3
             )
-            
+
             return response.get('elements', [])
-            
+
         except Exception as e:
             logger.error(f"Error decomposing query: {e}")
             return []
+
+    def reformulate_query_with_context(self, query: str, conversation_history: List[Dict[str, str]]) -> str:
+        """
+        Reformulate query using conversation context to resolve coreferences and add missing context.
+        Makes the system more agentic by understanding conversation flow.
+
+        Args:
+            query: The current user query
+            conversation_history: List of previous conversation turns [{"role": "user/assistant", "content": "..."}]
+
+        Returns:
+            Reformulated query that is self-contained and explicit
+        """
+        try:
+            # If no conversation history, return query as is
+            if not conversation_history or len(conversation_history) == 0:
+                logger.debug("No conversation history - returning original query")
+                return query
+
+            # Format conversation history for the prompt
+            history_text = ""
+            for msg in conversation_history:
+                role = msg["role"].capitalize()
+                content = msg["content"]
+                history_text += f"{role}: {content}\n\n"
+
+            # Use the query reformulation prompt
+            prompt = self.prompt_manager.query_reformulation.format(
+                conversation_history=history_text.strip(),
+                query=query
+            )
+
+            # Get reformulated query with low temperature for consistency
+            reformulated_query = self._chat_completion(prompt, temperature=0.2, max_tokens=200)
+
+            # Clean up the response (remove any potential prefixes or explanations)
+            reformulated_query = reformulated_query.strip()
+
+            # Remove common prefixes that the LLM might add
+            prefixes_to_remove = [
+                "Reformulated Query:",
+                "Reformulated query:",
+                "Query:",
+                "query:",
+                "Output:",
+                "output:"
+            ]
+
+            for prefix in prefixes_to_remove:
+                if reformulated_query.startswith(prefix):
+                    reformulated_query = reformulated_query[len(prefix):].strip()
+
+            # Log for debugging
+            if reformulated_query != query:
+                logger.info(f"Query reformulated: '{query}' → '{reformulated_query}'")
+            else:
+                logger.debug("Query unchanged after reformulation")
+
+            return reformulated_query
+
+        except Exception as e:
+            logger.error(f"Error reformulating query: {e}")
+            # Return original query if reformulation fails
+            return query
     
     def reconstruct_relationship(self, malformed_relationship: List[str]) -> Tuple[str, str, str]:
         """
