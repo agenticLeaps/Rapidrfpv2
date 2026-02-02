@@ -1862,7 +1862,8 @@ def v1_generate_response():
                     contexts.append(content)
                     sources.append({
                         'node_id': result.get("node_id", ""),
-                        'text': content[:200] if len(content) > 200 else content,
+                        'content': content,  # Full content for RAG verification
+                        'text': content[:500] if len(content) > 500 else content,  # Increased to 500 chars
                         'type': result.get("node_type", "unknown"),
                         'metadata': result.get("metadata", {}),
                         'similarity_score': result.get("similarity_score", 0),
@@ -1884,7 +1885,8 @@ def v1_generate_response():
                         contexts.append(node.content)
                         sources.append({
                             'node_id': node_id,
-                            'text': node.content[:200] if len(node.content) > 200 else node.content,
+                            'content': node.content,  # Full content for RAG verification
+                            'text': node.content[:500] if len(node.content) > 500 else node.content,
                             'type': node.type.value,
                             'metadata': getattr(node, 'metadata', {})
                         })
@@ -1909,16 +1911,28 @@ def v1_generate_response():
         except Exception as llm_error:
             logger.warning(f"LLM response generation failed, using raw context: {llm_error}")
 
+        # Calculate confidence based on similarity scores
+        confidence = 0.0
+        if sources:
+            similarity_scores = [s.get('similarity_score', 0) for s in sources[:5] if s.get('similarity_score')]
+            if similarity_scores:
+                # Average of top similarity scores, scaled to 0-1
+                avg_similarity = sum(similarity_scores) / len(similarity_scores)
+                # Similarity scores are typically cosine similarity (0-1), so use directly
+                confidence = min(avg_similarity, 1.0)
+
         response = {
             "success": True,
             "query": query,
             "response": response_text,
             "sources": sources[:5],
+            "confidence": confidence,  # Added confidence score
             "session_id": session_id,
             "retrieval_stats": {
                 "total_results": len(sources),
                 "contexts_used": len(contexts[:5]),
-                "source": "database" if db_results else "memory"
+                "source": "database" if db_results else "memory",
+                "avg_similarity": confidence
             },
             "usage": {
                 "prompt_tokens": len(query.split()),
