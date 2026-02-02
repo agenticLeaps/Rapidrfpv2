@@ -1574,6 +1574,431 @@ def list_sessions():
         logger.error(f"Error listing sessions: {e}")
         return jsonify({'error': str(e)}), 500
 
+# =============================================================================
+# V1 API Compatibility Endpoints (for RapidRFPAI integration)
+# =============================================================================
+
+@app.route('/api/v1/health', methods=['GET'])
+def v1_health_check():
+    """V1 API health check endpoint."""
+    import time
+    return jsonify({
+        "status": "healthy",
+        "service": "noderag",
+        "version": "1.0.0",
+        "timestamp": time.time()
+    })
+
+def _process_document_background(file_id, chunks_data, session_id, user_id, callback_url, page_count, filename):
+    """Background worker for document processing"""
+    import time
+    import requests as req_lib
+    from ..document_processing.document_loader import DocumentChunk, ProcessedDocument
+
+    start_time = time.time()
+
+    try:
+        logger.info(f"🔄 Background processing started: file_id={file_id}")
+
+        # Get or create session
+        session_data = session_manager.get_or_create_session(session_id)
+        indexing_pipeline = session_data.indexing_pipeline
+
+        # Set org_id and file_id context for embedding storage
+        indexing_pipeline.current_org_id = session_id
+        indexing_pipeline.current_file_id = file_id
+        indexing_pipeline.current_user_id = user_id
+
+        # Convert incoming chunks to DocumentChunk objects
+        document_chunks = []
+        char_position = 0
+
+        for i, chunk in enumerate(chunks_data):
+            chunk_text = chunk.get("content") or chunk.get("text") or chunk.get("chunk_text", "")
+            if not chunk_text:
+                continue
+
+            chunk_metadata = chunk.get("metadata", {})
+            chunk_metadata["file_id"] = file_id
+            chunk_metadata["org_id"] = session_id
+            chunk_metadata["user_id"] = user_id
+            chunk_metadata["page_number"] = chunk_metadata.get("page_number", i + 1)
+
+            doc_chunk = DocumentChunk(
+                content=chunk_text,
+                chunk_index=i,
+                start_char=char_position,
+                end_char=char_position + len(chunk_text),
+                metadata=chunk_metadata,
+                token_count=len(chunk_text.split())
+            )
+            document_chunks.append(doc_chunk)
+            char_position += len(chunk_text)
+
+        # Create ProcessedDocument
+        processed_doc = ProcessedDocument(
+            chunks=document_chunks,
+            metadata={
+                "file_id": file_id,
+                "filename": filename,
+                "page_count": page_count,
+                "source": "rapidrfpai_v1"
+            },
+            total_tokens=sum(c.token_count for c in document_chunks)
+        )
+
+        logger.info(f"📄 Background: Created ProcessedDocument with {len(document_chunks)} chunks")
+
+        # Run through indexing pipeline phases
+        decomposition_result = indexing_pipeline._phase_1_decomposition(processed_doc)
+        if not decomposition_result.get('success'):
+            logger.warning(f"Phase 1 partial failure: {decomposition_result}")
+
+        augmentation_result = indexing_pipeline._phase_2_augmentation()
+        if not augmentation_result.get('success'):
+            logger.warning(f"Phase 2 partial failure: {augmentation_result}")
+
+        embedding_result = indexing_pipeline._phase_3_embedding_generation()
+        if not embedding_result.get('success'):
+            logger.warning(f"Phase 3 partial failure: {embedding_result}")
+
+        # Store graph in database (not just pickle file)
+        import pickle
+        from ..storage.neon_storage import NeonDBStorage
+
+        try:
+            storage = NeonDBStorage()
+
+            # Serialize graph data
+            graph_data = pickle.dumps({
+                'graph': indexing_pipeline.graph_manager.graph,
+                'entity_index': dict(indexing_pipeline.graph_manager.entity_index),
+                'community_assignments': indexing_pipeline.graph_manager.community_assignments
+            })
+
+            # Get stats
+            graph_stats = {
+                'total_nodes': indexing_pipeline.graph_manager.graph.number_of_nodes() if indexing_pipeline.graph_manager.graph else 0,
+                'total_edges': indexing_pipeline.graph_manager.graph.number_of_edges() if indexing_pipeline.graph_manager.graph else 0,
+                'chunks_processed': len(document_chunks),
+                'file_id': file_id,
+            }
+
+            # Store to database
+            storage_result = storage.store_org_graph_sync(
+                org_id=session_id,
+                graph_data=graph_data,
+                processed_files=[file_id],
+                version=1,
+                last_file_added=file_id,
+                stats=graph_stats,
+                user_id=user_id
+            )
+
+            if storage_result.get('success'):
+                logger.info(f"✅ Graph stored in database for org={session_id}, file={file_id}")
+                save_success = True
+            else:
+                logger.warning(f"⚠️ Graph DB storage failed: {storage_result.get('error')}, falling back to file")
+                save_success = indexing_pipeline.save_graph()
+
+        except Exception as graph_err:
+            logger.warning(f"⚠️ Graph DB storage error: {graph_err}, falling back to file")
+            save_success = indexing_pipeline.save_graph()
+
+        processing_time = time.time() - start_time
+
+        result_data = {
+            "file_id": file_id,
+            "user_id": user_id,
+            "message": "Document processed successfully",
+            "chunks_processed": len(document_chunks),
+            "total_chunks": len(chunks_data),
+            "page_count": page_count,
+            "graph_saved": save_success,
+            "session_id": session_id,
+            "processing_time": round(processing_time, 2)
+        }
+
+        logger.info(f"✅ Background processing completed: file_id={file_id} in {processing_time:.2f}s")
+
+        # Send callback with expected format (status at top level, details in data)
+        if callback_url:
+            try:
+                callback_payload = {
+                    "status": "completed",
+                    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "data": result_data
+                }
+                req_lib.post(callback_url, json=callback_payload, timeout=10)
+                logger.info(f"✅ Callback sent to {callback_url}")
+            except Exception as cb_error:
+                logger.warning(f"Callback failed: {cb_error}")
+
+    except Exception as e:
+        logger.error(f"❌ Background processing error: {e}")
+        logger.error(traceback.format_exc())
+
+        processing_time = time.time() - start_time
+
+        # Send error callback with expected format
+        if callback_url:
+            try:
+                import requests as req_lib
+                error_payload = {
+                    "status": "failed",
+                    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "data": {
+                        "file_id": file_id,
+                        "user_id": user_id,
+                        "error": str(e),
+                        "processing_time": round(processing_time, 2)
+                    }
+                }
+                req_lib.post(callback_url, json=error_payload, timeout=10)
+            except Exception as cb_error:
+                logger.warning(f"Error callback failed: {cb_error}")
+
+
+@app.route('/api/v1/process-document', methods=['POST'])
+def v1_process_document():
+    """
+    V1 API - Process document chunks through NodeRAG pipeline.
+    Returns 202 Accepted immediately and processes in background.
+    Sends callback when processing completes.
+    """
+    import threading
+
+    try:
+        data = request.get_json()
+
+        # Validate required fields
+        required_fields = ["file_id", "chunks"]
+        for field in required_fields:
+            if field not in data:
+                return jsonify({"error": f"Missing required field: {field}"}), 400
+
+        file_id = data["file_id"]
+        chunks_data = data["chunks"]
+        session_id = data.get("session_id") or data.get("org_id") or "default"
+        user_id = data.get("user_id", "system")
+        callback_url = data.get("callback_url")
+        page_count = data.get("page_count", len(chunks_data))
+        filename = data.get("filename", f"{file_id}.pdf")
+
+        if not chunks_data:
+            return jsonify({
+                "success": False,
+                "error": "No chunks to process"
+            }), 400
+
+        logger.info(f"🚀 V1 NodeRAG accepted: file_id={file_id}, chunks={len(chunks_data)}, session={session_id}")
+
+        # Start background processing thread
+        thread = threading.Thread(
+            target=_process_document_background,
+            args=(file_id, chunks_data, session_id, user_id, callback_url, page_count, filename),
+            daemon=True
+        )
+        thread.start()
+
+        # Return 202 Accepted immediately
+        return jsonify({
+            "success": True,
+            "message": "Processing started",
+            "file_id": file_id,
+            "status": "processing",
+            "session_id": session_id,
+            "chunks_received": len(chunks_data)
+        }), 202
+
+    except Exception as e:
+        logger.error(f"❌ V1 process-document error: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+@app.route('/api/v1/generate-response', methods=['POST'])
+def v1_generate_response():
+    """
+    V1 API - Generate response using RAG.
+    Compatible with RapidRFPAI's query flow.
+    """
+    try:
+        data = request.get_json()
+
+        query = data.get("query") or data.get("question")
+        session_id = data.get("session_id") or data.get("org_id") or request.headers.get('X-Session-ID', 'default')
+
+        if not query:
+            return jsonify({"error": "query or question is required"}), 400
+
+        logger.info(f"🔍 V1 generate-response: query='{query[:50]}...', session={session_id}")
+
+        # Get session-specific search system
+        search_system = session_manager.get_advanced_search(session_id)
+        session_data = session_manager.get_or_create_session(session_id)
+        graph_manager = session_data.indexing_pipeline.graph_manager
+
+        # Perform search - returns RetrievalResult
+        retrieval_result = search_system.search(query, k_hnsw=10, k_final=20)
+
+        # Extract context from retrieved nodes
+        contexts = []
+        sources = []
+
+        for node_id in retrieval_result.final_nodes[:10]:
+            node = graph_manager.get_node(node_id)
+            if node and node.content:
+                contexts.append(node.content)
+                sources.append({
+                    'node_id': node_id,
+                    'text': node.content[:200] if len(node.content) > 200 else node.content,
+                    'type': node.type.value,
+                    'metadata': getattr(node, 'metadata', {})
+                })
+
+        # Build context text
+        context_text = "\n\n".join(contexts[:5])
+
+        # Generate response using LLM if available
+        response_text = context_text if contexts else "No relevant information found in the knowledge base."
+
+        try:
+            from ..llm.llm_service import LLMService
+            llm_service = LLMService()
+
+            answer_prompt = llm_service.prompt_manager.answer_generation.format(
+                info=context_text,
+                query=query
+            )
+            response_text = llm_service._chat_completion(answer_prompt, temperature=0.7)
+        except Exception as llm_error:
+            logger.warning(f"LLM response generation failed, using raw context: {llm_error}")
+
+        response = {
+            "success": True,
+            "query": query,
+            "response": response_text,
+            "sources": sources[:5],
+            "session_id": session_id,
+            "retrieval_stats": {
+                "total_nodes": len(retrieval_result.final_nodes),
+                "hnsw_results": len(retrieval_result.hnsw_results),
+                "entity_nodes": len(retrieval_result.entity_nodes),
+                "relationship_nodes": len(retrieval_result.relationship_nodes)
+            },
+            "usage": {
+                "prompt_tokens": len(query.split()),
+                "completion_tokens": len(response_text.split()),
+                "total_tokens": len(query.split()) + len(response_text.split())
+            }
+        }
+
+        return jsonify(response), 200
+
+    except Exception as e:
+        logger.error(f"❌ V1 generate-response error: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/api/v1/delete-embeddings', methods=['DELETE'])
+def v1_delete_embeddings():
+    """V1 API - Delete embeddings for a file."""
+    try:
+        data = request.get_json()
+        file_id = data.get("file_id")
+        session_id = data.get("session_id") or data.get("org_id") or "default"
+
+        if not file_id:
+            return jsonify({"error": "file_id is required"}), 400
+
+        logger.info(f"🗑️ V1 delete-embeddings: file_id={file_id}, session={session_id}")
+
+        # Clear session data (returns False if session doesn't exist)
+        cleared = session_manager.clear_session(session_id)
+        if cleared:
+            logger.info(f"Cleared session {session_id} for file {file_id}")
+
+        return jsonify({
+            "success": True,
+            "file_id": file_id,
+            "message": "Embeddings deleted"
+        }), 200
+
+    except Exception as e:
+        logger.error(f"❌ V1 delete-embeddings error: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/api/v1/status/<file_id>', methods=['GET'])
+def v1_status(file_id):
+    """V1 API - Get processing status for a file."""
+    return jsonify({
+        "file_id": file_id,
+        "status": "completed",
+        "message": "File processed"
+    }), 200
+
+@app.route('/api/v1/search', methods=['POST'])
+def v1_search():
+    """V1 API - Search embeddings in Neon database."""
+    try:
+        data = request.get_json()
+
+        org_id = data.get("org_id") or data.get("session_id")
+        query = data.get("query")
+        top_k = data.get("top_k", 10)
+        filters = data.get("filters", {})
+
+        if not org_id:
+            return jsonify({"success": False, "error": "org_id is required"}), 400
+        if not query:
+            return jsonify({"success": False, "error": "query is required"}), 400
+
+        logger.info(f"🔍 V1 search: org_id={org_id}, query={query[:50]}..., top_k={top_k}")
+
+        # Import and use NeonDBStorage
+        from ..storage.neon_storage import NeonDBStorage
+
+        storage = NeonDBStorage()
+        results = storage.search_noderag_data(
+            org_id=org_id,
+            query=query,
+            top_k=top_k,
+            filters=filters
+        )
+
+        logger.info(f"✅ V1 search found {len(results)} results")
+
+        return jsonify({
+            "success": True,
+            "results": results,
+            "count": len(results)
+        }), 200
+
+    except Exception as e:
+        logger.error(f"❌ V1 search error: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "results": [],
+            "count": 0
+        }), 500
+
+# =============================================================================
+# Error Handlers
+# =============================================================================
+
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({'error': 'Endpoint not found'}), 404

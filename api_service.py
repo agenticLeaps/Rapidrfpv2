@@ -532,6 +532,8 @@ def delete_embeddings():
                     "file_id": file_id,
                     "embeddings_deleted": result.get("deleted_count", 0),
                     "graph_nodes_removed": result.get("nodes_removed", 0),
+                    "graph_nodes_preserved": result.get("nodes_preserved", 0),
+                    "graph_edges_removed": result.get("edges_removed", 0),
                     "graph_updated": result.get("graph_updated", False),
                     "delete_time_seconds": result.get("delete_time_seconds", 0)
                 })

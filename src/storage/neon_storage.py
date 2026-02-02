@@ -28,6 +28,19 @@ from ..llm.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
 
+
+def convert_sets_to_lists(obj):
+    """Recursively convert sets to lists for JSON serialization"""
+    if isinstance(obj, set):
+        return list(obj)
+    elif isinstance(obj, dict):
+        return {k: convert_sets_to_lists(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_sets_to_lists(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(convert_sets_to_lists(item) for item in obj)
+    return obj
+
 def run_async_safe(coro):
     """Safely run async function in sync context using a dedicated thread"""
     import concurrent.futures
@@ -309,12 +322,13 @@ class NeonDBStorage:
                                 # Convert embedding to string format for vector type
                                 embedding_str = '[' + ','.join(map(str, node.embeddings)) + ']'
                                 
-                                # Prepare graph metadata
+                                # Prepare graph metadata (convert sets to lists for JSON)
+                                node_meta = node.metadata if hasattr(node, 'metadata') else {}
                                 graph_metadata = {
-                                    'node_metadata': node.metadata if hasattr(node, 'metadata') else {},
+                                    'node_metadata': convert_sets_to_lists(node_meta),
                                     'node_type_value': node.type.value if hasattr(node.type, 'value') else str(node.type)
                                 }
-                                
+
                                 batch_data.append((
                                     node.id,
                                     node.type.value if hasattr(node.type, 'value') else str(node.type),
@@ -557,6 +571,8 @@ class NeonDBStorage:
                     )
 
                     nodes_removed = 0
+                    nodes_preserved = 0
+                    edges_removed = 0
                     graph_updated = False
 
                     if org_graph_row:
@@ -574,9 +590,13 @@ class NeonDBStorage:
                                 graph_manager.entity_index = graph_data_dict.get('entity_index', {})
                                 graph_manager.community_assignments = graph_data_dict.get('community_assignments', {})
 
-                                # Remove nodes for this file
+                                # Remove nodes for this file (preserves multi-file nodes)
                                 clear_result = graph_manager.clear_file_nodes(file_id)
                                 nodes_removed = clear_result.get('nodes_removed', 0)
+                                nodes_preserved = clear_result.get('nodes_preserved', 0)
+                                edges_removed = clear_result.get('edges_removed', 0)
+
+                                logger.info(f"Clear result: {nodes_removed} nodes removed, {nodes_preserved} nodes preserved")
 
                                 # Update processed files list
                                 processed_files.remove(file_id)
@@ -625,12 +645,17 @@ class NeonDBStorage:
                             # Continue anyway - embeddings were deleted
 
                     delete_time = time.time() - delete_start
-                    logger.info(f"🗑️ Deleted {embeddings_deleted} embeddings and {nodes_removed} graph nodes for file_id={file_id} in {delete_time:.2f}s")
+                    logger.info(
+                        f"🗑️ Deleted {embeddings_deleted} embeddings and {nodes_removed} graph nodes "
+                        f"(preserved {nodes_preserved} shared nodes) for file_id={file_id} in {delete_time:.2f}s"
+                    )
 
                     return {
                         "success": True,
                         "deleted_count": embeddings_deleted,
                         "nodes_removed": nodes_removed,
+                        "nodes_preserved": nodes_preserved,
+                        "edges_removed": edges_removed,
                         "graph_updated": graph_updated,
                         "delete_time_seconds": delete_time
                     }
@@ -796,6 +821,9 @@ class NeonDBStorage:
                                 # Prepare embedding string
                                 embedding_str = '[' + ','.join(map(str, item['embedding'])) + ']'
                                 
+                                # Convert sets to lists for JSON serialization
+                                metadata = convert_sets_to_lists(item.get('metadata', {}))
+
                                 batch_data.append((
                                     item['node_id'],
                                     item['node_type'],
@@ -805,7 +833,7 @@ class NeonDBStorage:
                                     file_id,
                                     user_id,
                                     batch_idx + i,  # chunk_index
-                                    json.dumps(item.get('metadata', {}))
+                                    json.dumps(metadata)
                                 ))
                                 
                             except Exception as e:

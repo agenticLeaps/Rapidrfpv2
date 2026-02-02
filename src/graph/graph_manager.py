@@ -24,18 +24,27 @@ class GraphManager:
                 # Merge with existing entity
                 self._merge_entities(existing_entity, node)
                 return False
-        
+
+        # Ensure file_ids is tracked as a set in metadata
+        metadata = node.metadata.copy()
+        file_id = metadata.get('file_id')
+        if file_id:
+            # Convert single file_id to a set of file_ids for multi-file tracking
+            metadata['file_ids'] = {file_id}
+        else:
+            metadata['file_ids'] = set()
+
         self.graph.add_node(
             node.id,
             type=node.type.value,
             content=node.content,
-            metadata=node.metadata,
+            metadata=metadata,
             embeddings=node.embeddings
         )
-        
+
         if node.type == NodeType.ENTITY:
             self.entity_index[node.content.lower()].add(node.id)
-        
+
         logger.debug(f"Added node {node.id} of type {node.type.value}")
         return True
     
@@ -263,10 +272,33 @@ class GraphManager:
         existing_node = self.get_node(existing_id)
         if not existing_node:
             return
-        
+
         # Merge metadata
         merged_metadata = existing_node.metadata.copy()
+
+        # First, handle file_ids specially to track all files referencing this entity
+        existing_file_ids = merged_metadata.get('file_ids', set())
+        new_file_id = new_node.metadata.get('file_id')
+        new_file_ids = new_node.metadata.get('file_ids', set())
+
+        # Ensure existing_file_ids is a set
+        if not isinstance(existing_file_ids, set):
+            existing_file_ids = {existing_file_ids} if existing_file_ids else set()
+
+        # Combine file_ids from both nodes
+        combined_file_ids = existing_file_ids.copy()
+        if new_file_id:
+            combined_file_ids.add(new_file_id)
+        if new_file_ids:
+            combined_file_ids.update(new_file_ids)
+
+        merged_metadata['file_ids'] = combined_file_ids
+
+        # Merge other metadata fields
         for key, value in new_node.metadata.items():
+            if key in ['file_id', 'file_ids']:
+                continue  # Already handled above
+
             if key in merged_metadata:
                 if isinstance(merged_metadata[key], list):
                     if isinstance(value, list):
@@ -279,10 +311,10 @@ class GraphManager:
                     merged_metadata[key] = [merged_metadata[key], value]
             else:
                 merged_metadata[key] = value
-        
+
         # Update the existing node
         self.graph.nodes[existing_id]['metadata'] = merged_metadata
-        logger.debug(f"Merged entity {new_node.id} into {existing_id}")
+        logger.debug(f"Merged entity {new_node.id} into {existing_id}, now referenced by {len(combined_file_ids)} files")
     
     # ==================== ORG-LEVEL GRAPH METHODS ====================
     
@@ -390,17 +422,53 @@ class GraphManager:
         return base_stats
     
     def clear_file_nodes(self, file_id: str) -> Dict[str, Any]:
-        """Remove all nodes associated with a specific file"""
-        stats = {'nodes_removed': 0, 'edges_removed': 0}
-        
+        """
+        Remove or update nodes associated with a specific file.
+        Preserves nodes that are referenced by multiple files (e.g., merged entities).
+        """
+        stats = {
+            'nodes_removed': 0,
+            'nodes_preserved': 0,
+            'edges_removed': 0
+        }
+
         try:
-            # Find nodes to remove
             nodes_to_remove = []
+            nodes_to_update = []
+
+            # Categorize nodes: remove vs update
             for node_id, data in self.graph.nodes(data=True):
-                if data.get('metadata', {}).get('file_id') == file_id:
-                    nodes_to_remove.append(node_id)
-            
-            # Remove nodes (edges will be removed automatically)
+                metadata = data.get('metadata', {})
+
+                # Check both file_ids (set) and file_id (legacy single value)
+                file_ids = metadata.get('file_ids', set())
+                single_file_id = metadata.get('file_id')
+
+                # Ensure file_ids is a set
+                if not isinstance(file_ids, set):
+                    file_ids = {file_ids} if file_ids else set()
+
+                # Include legacy single file_id if it exists
+                if single_file_id and single_file_id not in file_ids:
+                    file_ids.add(single_file_id)
+
+                # Check if this node references the file being deleted
+                if file_id in file_ids:
+                    if len(file_ids) > 1:
+                        # Node is referenced by multiple files - preserve it
+                        nodes_to_update.append((node_id, file_ids))
+                        stats['nodes_preserved'] += 1
+                    else:
+                        # Node is only referenced by this file - delete it
+                        nodes_to_remove.append(node_id)
+
+            # Update multi-file nodes (remove file_id from their file_ids set)
+            for node_id, file_ids in nodes_to_update:
+                updated_file_ids = file_ids - {file_id}
+                self.graph.nodes[node_id]['metadata']['file_ids'] = updated_file_ids
+                logger.debug(f"Node {node_id} preserved (still referenced by {len(updated_file_ids)} files)")
+
+            # Remove single-file nodes
             edges_before = self.graph.number_of_edges()
             for node_id in nodes_to_remove:
                 if self.graph.has_node(node_id):
@@ -412,17 +480,23 @@ class GraphManager:
                             self.entity_index[entity_content].discard(node_id)
                             if not self.entity_index[entity_content]:
                                 del self.entity_index[entity_content]
-                    
+
                     self.graph.remove_node(node_id)
                     stats['nodes_removed'] += 1
-            
+
             stats['edges_removed'] = edges_before - self.graph.number_of_edges()
-            
-            logger.info(f"Removed file {file_id}: {stats['nodes_removed']} nodes, {stats['edges_removed']} edges")
+
+            logger.info(
+                f"Cleared file {file_id}: {stats['nodes_removed']} nodes removed, "
+                f"{stats['nodes_preserved']} nodes preserved (multi-file), "
+                f"{stats['edges_removed']} edges removed"
+            )
             return stats
-            
+
         except Exception as e:
             logger.error(f"Error clearing file nodes for {file_id}: {e}")
+            import traceback
+            traceback.print_exc()
             stats['error'] = str(e)
             return stats
     
@@ -430,6 +504,68 @@ class GraphManager:
         """Get count of nodes for a specific file"""
         count = 0
         for node_id, data in self.graph.nodes(data=True):
-            if data.get('metadata', {}).get('file_id') == file_id:
+            metadata = data.get('metadata', {})
+            file_ids = metadata.get('file_ids', set())
+            single_file_id = metadata.get('file_id')
+
+            # Handle legacy single file_id
+            if not isinstance(file_ids, set):
+                file_ids = {file_ids} if file_ids else set()
+            if single_file_id and single_file_id not in file_ids:
+                file_ids.add(single_file_id)
+
+            if file_id in file_ids:
                 count += 1
         return count
+
+    def get_node_file_references(self, node_id: str) -> Set[str]:
+        """
+        Get all file IDs that reference a specific node.
+        Useful for understanding which files are using a particular entity.
+        """
+        if not self.graph.has_node(node_id):
+            return set()
+
+        metadata = self.graph.nodes[node_id].get('metadata', {})
+        file_ids = metadata.get('file_ids', set())
+        single_file_id = metadata.get('file_id')
+
+        # Ensure file_ids is a set
+        if not isinstance(file_ids, set):
+            file_ids = {file_ids} if file_ids else set()
+
+        # Include legacy single file_id
+        if single_file_id and single_file_id not in file_ids:
+            file_ids.add(single_file_id)
+
+        return file_ids
+
+    def get_shared_nodes_stats(self) -> Dict[str, Any]:
+        """
+        Get statistics about nodes shared across multiple files.
+        Useful for understanding entity deduplication effectiveness.
+        """
+        single_file_nodes = 0
+        multi_file_nodes = 0
+        max_file_count = 0
+        file_distribution = defaultdict(int)
+
+        for node_id, data in self.graph.nodes(data=True):
+            file_refs = self.get_node_file_references(node_id)
+            num_files = len(file_refs)
+
+            if num_files == 1:
+                single_file_nodes += 1
+            elif num_files > 1:
+                multi_file_nodes += 1
+                max_file_count = max(max_file_count, num_files)
+
+            file_distribution[num_files] += 1
+
+        return {
+            'single_file_nodes': single_file_nodes,
+            'multi_file_nodes': multi_file_nodes,
+            'max_files_per_node': max_file_count,
+            'file_distribution': dict(file_distribution),
+            'deduplication_ratio': multi_file_nodes / (single_file_nodes + multi_file_nodes) if (single_file_nodes + multi_file_nodes) > 0 else 0
+        }
