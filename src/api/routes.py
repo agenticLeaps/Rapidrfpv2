@@ -1826,40 +1826,70 @@ def v1_generate_response():
     """
     V1 API - Generate response using RAG.
     Compatible with RapidRFPAI's query flow.
+    Uses database for search, falls back to in-memory if available.
     """
     try:
         data = request.get_json()
 
         query = data.get("query") or data.get("question")
         session_id = data.get("session_id") or data.get("org_id") or request.headers.get('X-Session-ID', 'default')
+        top_k = data.get("top_k", 10)
 
         if not query:
             return jsonify({"error": "query or question is required"}), 400
 
         logger.info(f"🔍 V1 generate-response: query='{query[:50]}...', session={session_id}")
 
-        # Get session-specific search system
-        search_system = session_manager.get_advanced_search(session_id)
-        session_data = session_manager.get_or_create_session(session_id)
-        graph_manager = session_data.indexing_pipeline.graph_manager
+        # Primary: Search from database (persistent storage)
+        from ..storage.neon_storage import NeonDBStorage
+        storage = NeonDBStorage()
 
-        # Perform search - returns RetrievalResult
-        retrieval_result = search_system.search(query, k_hnsw=10, k_final=20)
+        db_results = storage.search_noderag_data(
+            org_id=session_id,
+            query=query,
+            top_k=top_k
+        )
 
-        # Extract context from retrieved nodes
         contexts = []
         sources = []
 
-        for node_id in retrieval_result.final_nodes[:10]:
-            node = graph_manager.get_node(node_id)
-            if node and node.content:
-                contexts.append(node.content)
-                sources.append({
-                    'node_id': node_id,
-                    'text': node.content[:200] if len(node.content) > 200 else node.content,
-                    'type': node.type.value,
-                    'metadata': getattr(node, 'metadata', {})
-                })
+        if db_results:
+            # Use database results
+            logger.info(f"📊 Found {len(db_results)} results from database")
+            for result in db_results[:10]:
+                content = result.get("content", "")
+                if content:
+                    contexts.append(content)
+                    sources.append({
+                        'node_id': result.get("node_id", ""),
+                        'text': content[:200] if len(content) > 200 else content,
+                        'type': result.get("node_type", "unknown"),
+                        'metadata': result.get("metadata", {}),
+                        'similarity_score': result.get("similarity_score", 0),
+                        'file_id': result.get("file_id", "")
+                    })
+        else:
+            # Fallback: Try in-memory session search
+            logger.info(f"📊 No DB results, trying in-memory session")
+            try:
+                search_system = session_manager.get_advanced_search(session_id)
+                session_data = session_manager.get_or_create_session(session_id)
+                graph_manager = session_data.indexing_pipeline.graph_manager
+
+                retrieval_result = search_system.search(query, k_hnsw=10, k_final=20)
+
+                for node_id in retrieval_result.final_nodes[:10]:
+                    node = graph_manager.get_node(node_id)
+                    if node and node.content:
+                        contexts.append(node.content)
+                        sources.append({
+                            'node_id': node_id,
+                            'text': node.content[:200] if len(node.content) > 200 else node.content,
+                            'type': node.type.value,
+                            'metadata': getattr(node, 'metadata', {})
+                        })
+            except Exception as mem_error:
+                logger.warning(f"In-memory search also failed: {mem_error}")
 
         # Build context text
         context_text = "\n\n".join(contexts[:5])
@@ -1886,10 +1916,9 @@ def v1_generate_response():
             "sources": sources[:5],
             "session_id": session_id,
             "retrieval_stats": {
-                "total_nodes": len(retrieval_result.final_nodes),
-                "hnsw_results": len(retrieval_result.hnsw_results),
-                "entity_nodes": len(retrieval_result.entity_nodes),
-                "relationship_nodes": len(retrieval_result.relationship_nodes)
+                "total_results": len(sources),
+                "contexts_used": len(contexts[:5]),
+                "source": "database" if db_results else "memory"
             },
             "usage": {
                 "prompt_tokens": len(query.split()),
@@ -1910,7 +1939,7 @@ def v1_generate_response():
 
 @app.route('/api/v1/delete-embeddings', methods=['DELETE'])
 def v1_delete_embeddings():
-    """V1 API - Delete embeddings for a file."""
+    """V1 API - Delete embeddings for a file from database and memory."""
     try:
         data = request.get_json()
         file_id = data.get("file_id")
@@ -1921,19 +1950,30 @@ def v1_delete_embeddings():
 
         logger.info(f"🗑️ V1 delete-embeddings: file_id={file_id}, session={session_id}")
 
-        # Clear session data (returns False if session doesn't exist)
+        # Delete from database
+        from ..storage.neon_storage import NeonDBStorage
+        storage = NeonDBStorage()
+
+        db_result = storage.delete_file_data(org_id=session_id, file_id=file_id)
+        logger.info(f"Database delete result: {db_result}")
+
+        # Clear in-memory session data
         cleared = session_manager.clear_session(session_id)
         if cleared:
-            logger.info(f"Cleared session {session_id} for file {file_id}")
+            logger.info(f"Cleared in-memory session {session_id}")
 
         return jsonify({
             "success": True,
             "file_id": file_id,
-            "message": "Embeddings deleted"
+            "session_id": session_id,
+            "database_deleted": db_result.get("success", False),
+            "embeddings_deleted": db_result.get("embeddings_deleted", 0),
+            "message": "Embeddings deleted from database and memory"
         }), 200
 
     except Exception as e:
         logger.error(f"❌ V1 delete-embeddings error: {e}")
+        logger.error(traceback.format_exc())
         return jsonify({
             "success": False,
             "error": str(e)
