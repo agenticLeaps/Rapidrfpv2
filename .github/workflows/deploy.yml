@@ -1,0 +1,45 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          cd /home/ubuntu/rapidrfp/Rapidrfpv2
+
+          # Pull latest changes
+          git pull origin main
+
+          # Rebuild and restart the container
+          cd /home/ubuntu/rapidrfp
+          docker compose build rapidrfpv2
+          docker compose up -d rapidrfpv2
+
+          # Clean up old images
+          docker image prune -f
+
+          # Show status
+          docker compose ps
+
+          echo "Deployment completed at $(date)"
+
+    - name: Health Check
+      run: |
+        sleep 30
+        curl -f http://${{ secrets.EC2_HOST }}:5001/api/v1/health || exit 1
+        echo "Health check passed!"
