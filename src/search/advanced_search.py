@@ -395,7 +395,19 @@ class AdvancedSearchSystem:
         """
         messages = []
 
-        if not conversation_history or not conversation_history.strip():
+        if not conversation_history:
+            return messages
+
+        # Handle case where conversation_history is already a list of message dicts
+        if isinstance(conversation_history, list):
+            for msg in conversation_history:
+                if isinstance(msg, dict) and "role" in msg and "content" in msg:
+                    if msg["role"] in ["user", "assistant"]:
+                        messages.append({"role": msg["role"], "content": msg["content"]})
+            return messages
+
+        # Handle string input
+        if not isinstance(conversation_history, str) or not conversation_history.strip():
             return messages
 
         # Try to parse as JSON first (most structured format)
