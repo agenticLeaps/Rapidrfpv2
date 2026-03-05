@@ -29,8 +29,17 @@ def memory_cleanup():
     gc.collect()
     logger.info(f"Memory after cleanup: {get_memory_usage():.2f} MB")
 
-@celery_app.task(bind=True, name='src.queue.tasks.process_document_task')
-def process_document_task(self, org_id: str, file_id: str, user_id: str, 
+@celery_app.task(
+    bind=True,
+    name='src.queue.tasks.process_document_task',
+    autoretry_for=(ConnectionError, TimeoutError, OSError),
+    retry_kwargs={'max_retries': 3, 'countdown': 30},
+    retry_backoff=True,
+    retry_jitter=True,
+    acks_late=True,
+    reject_on_worker_lost=True
+)
+def process_document_task(self, org_id: str, file_id: str, user_id: str,
                          chunks: List[Dict], callback_url: str = None):
     """
     Celery task for processing documents with memory management
