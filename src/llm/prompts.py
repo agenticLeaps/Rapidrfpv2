@@ -5,58 +5,75 @@ Based on NodeRAG's prompt design patterns with unified extraction and structured
 
 from typing import Dict, Any
 
-# Unified Text Decomposition Prompt (matching NodeRAG's approach)
+# Unified Text Decomposition Prompt (Government Contracting Knowledge Graph)
 UNIFIED_TEXT_DECOMPOSITION_PROMPT = """
-Goal: Given a text, segment it into multiple semantic units, each containing detailed descriptions of specific events or activities. 
+ROLE: You are an expert in U.S. Government Contracting who helps businesses win more contracts by identifying the right opportunities, executing effective capture planning, developing competitive proposals, and managing reusable content across pursuits.
 
-Perform the following tasks:
-1. Provide a summary for each semantic unit while retaining all crucial details relevant to the original context.
-2. Extract all entities directly from the original text of each semantic unit, not from the paraphrased summary. Format each entity name in UPPERCASE. You should extract all entities including times, locations, people, organizations and all kinds of entities.
-3. From the entities extracted in Step 2, list all relationships within the semantic unit and the corresponding original context in the form of string separated by comma: "ENTITY_A, RELATION_TYPE, ENTITY_B". The RELATION_TYPE could be a descriptive sentence, while the entities involved in the relationship must come from the entity names extracted in Step 2. Please make sure the string contains three elements representing two entities and the relationship type.
+TASK: Your task is to read a company's knowledge base and help structure it into a Knowledge Graph that supports future content retrieval and reuse across all stages of the bid lifecycle, including opportunity identification, capture planning, proposal development, and post-award activities.
 
-Requirements:
-1. Temporal Entities: Represent time entities based on the available details without filling in missing parts. Use specific formats based on what parts of the date or time are mentioned in the text.
+GOAL: Transform the raw company data into structured, reusable knowledge units. Identify and segment semantically coherent sections that describe:
+- Core capabilities, products and services offered
+- Past performance, contracts, and projects
+- Certifications, socioeconomic status, and security clearances
+- Contract vehicles, IDIQs, and GWACs
+- Staffing, team composition, and experience levels
+- Tools, technologies, platforms, and methodologies
+- Differentiators, corporate locations, performance metrics, and customers/agencies
+- Subcontractors and business relationships
 
-Each semantic unit should be represented as a dictionary containing three keys: semantic_unit (a paraphrased summary of each semantic unit), entities (a list of entities extracted directly from the original text of each semantic unit, formatted in UPPERCASE), and relationships (a list of extracted relationship strings that contain three elements, where the relationship type is a descriptive sentence). All these dictionaries should be stored in a list to facilitate management and access.
+RULES:
+- Segment by topic, not by paragraph
+- Minimum viable unit
+- Ignore boilerplate content
+- Use the most complete form of the organization that you are aware of and resolve abbreviations only when you are certain of the expansion. If you are not certain, preserve the abbreviation exactly as written. For example- DoD should be DEPARTMENT OF DEFENSE. Do not invent or guess expansions.
+- Preserve contract numbers, task order numbers, and BPA numbers exactly as written — do not normalize or abbreviate them.
+- Enforce Canonicalization to the best of your abilities. When the same entity appears across units, ensure identical spelling, resolve to one canonical form and globally consistent.
+- Avoid low-signal descriptive language.
+- Do NOT infer or hallucinate facts not explicitly present in the source text.
+- Prefer structured, queryable intelligence over narrative verbosity.
 
-Example:
+REQUIREMENTS:
+For each semantic unit, perform exactly these three tasks:
 
-Text: In September 2024, Dr. Emily Roberts traveled to Paris to attend the International Conference on Renewable Energy. During her visit, she explored partnerships with several European companies and presented her latest research on solar panel efficiency improvements. Meanwhile, on the other side of the world, her colleague, Dr. John Miller, was conducting fieldwork in the Amazon Rainforest. He documented several new species and observed the effects of deforestation on the local wildlife. Both scholars' work is essential in their respective fields and contributes significantly to environmental conservation efforts.
+semantic_unit:
+- Write a concise professional paraphrase (3–8 sentences) of the source text that preserves ALL proposal-relevant facts: what was done, for whom, with what results, under what contract vehicle or constraints, using what resources, with what metrics etc.
+- Keep quantitative details (dollar values, timelines, headcounts, metrics) exact.
+- Do NOT add, invent, or generalize facts not present in the original text.
+- Write in third person (e.g., "The company provided...").
 
-Output:
+entities:
+- Extract ALL procurement-relevant entities directly from the original source text of this unit.
+- Format every entity in UPPERCASE.
+- Return as a flat array of unique uppercase strings.
+- No duplicates within a unit.
+- All values must conform to canonicalization rules above.
+- Include (but do not limit to): organizations, government agencies, contract numbers, contract vehicles, NAICS/PSC codes, certifications, socioeconomic designations, security clearances, labor categories, tools/technologies/platforms, methodologies, performance metrics, monetary values, periods of performance, locations, and set-aside types.
+- Do NOT extract named individuals (people's names). Extract the role or labor category they represent instead (e.g., extract "PROGRAM MANAGER", not "JOHN SMITH").
+- VEHICLE vs. CONTRACT disambiguation: A contract vehicle is the parent IDIQ/GWAC name (e.g., OASIS+, SEWP V). A contract is the specific task order, BPA, or award number issued under it (e.g., TO-0003, W912DR-19-C-0042). Extract both when present.
+
+relationships:
+- Extract meaningful binary relationships grounded in the source text.
+- Format each as a comma-separated string with exactly three parts: "ENTITY_A, RELATION_TYPE, ENTITY_B"
+- Use SCREAMING_SNAKE_CASE (e.g., PERFORMED_FOR, ACHIEVED_METRIC_OF, SUBCONTRACTED_TO, HOLDS_CLEARANCE, DEPLOYED_ON).
+- Consistency matters: if the same real-world relationship appears across multiple units, use the same relation type string every time.
+
+Output Format:
+Return only a valid JSON array of objects. No other text, comments, or markdown.
 [
-  {{
-    "semantic_unit": "In September 2024, Dr. Emily Roberts attended the International Conference on Renewable Energy in Paris, where she presented her research on solar panel efficiency improvements and explored partnerships with European companies.",
-    "entities": ["DR. EMILY ROBERTS", "2024-09", "PARIS", "INTERNATIONAL CONFERENCE ON RENEWABLE ENERGY", "EUROPEAN COMPANIES", "SOLAR PANEL EFFICIENCY"],
-    "relationships": [
-      "DR. EMILY ROBERTS, attended, INTERNATIONAL CONFERENCE ON RENEWABLE ENERGY",
-      "DR. EMILY ROBERTS, explored partnerships with, EUROPEAN COMPANIES",
-      "DR. EMILY ROBERTS, presented research on, SOLAR PANEL EFFICIENCY"
-    ]
-  }},
-  {{
-    "semantic_unit": "Dr. John Miller conducted fieldwork in the Amazon Rainforest, documenting several new species and observing the effects of deforestation on local wildlife.",
-    "entities": ["DR. JOHN MILLER", "AMAZON RAINFOREST", "NEW SPECIES", "DEFORESTATION", "LOCAL WILDLIFE"],
-    "relationships": [
-      "DR. JOHN MILLER, conducted fieldwork in, AMAZON RAINFOREST",
-      "DR. JOHN MILLER, documented, NEW SPECIES",
-      "DR. JOHN MILLER, observed the effects of, DEFORESTATION on LOCAL WILDLIFE"
-    ]
-  }},
-  {{
-    "semantic_unit": "The work of both Dr. Emily Roberts and Dr. John Miller is crucial in their respective fields and contributes significantly to environmental conservation efforts.",
-    "entities": ["DR. EMILY ROBERTS", "DR. JOHN MILLER", "ENVIRONMENTAL CONSERVATION"],
-    "relationships": [
-      "DR. EMILY ROBERTS, contributes to, ENVIRONMENTAL CONSERVATION",
-      "DR. JOHN MILLER, contributes to, ENVIRONMENTAL CONSERVATION"
-    ]
-  }}
+{{
+"semantic_unit": "Concise summary paragraph(s)...",
+"entities": ["ENTITY ONE", "ENTITY TWO", "ANOTHER ONE"],
+"relationships": [
+"YOUR COMPANY, PERFORMED_FOR, DEPARTMENT OF DEFENSE",
+"CONTRACT12345, VALUED_AT, $8.7M",
+"YOUR COMPANY, CERTIFIED_AS, HUBZONE"
+]
+}}
 ]
 
-#########
-Real_Data:
-#########
-Text: {text}
+Now process the following text:
+
+{text}
 """
 
 # Chinese version of unified text decomposition
@@ -76,9 +93,11 @@ UNIFIED_TEXT_DECOMPOSITION_PROMPT_CHINESE = """
 文本:{text} 
 """
 
-# Enhanced Attribute Generation Prompt (matching NodeRAG's style)
+# Enhanced Attribute Generation Prompt (Government Contracting Entity Summary)
 ENHANCED_ATTRIBUTE_GENERATION_PROMPT = """
-Generate a concise summary of the given entity, capturing its essential attributes and important relevant relationships. The summary should read like a character sketch in a novel or a product description, providing an engaging yet precise overview. Ensure the output only includes the summary of the entity without any additional explanations or metadata. The length must not exceed 2000 words but can be shorter if the input material is limited. Focus on distilling the most important insights with a smooth narrative flow, highlighting the entity's core traits and meaningful connections.
+You are an expert in U.S. Government Contracting. Generate a concise factual summary of the given entity based strictly on the provided semantic units and relationships. The summary should capture the entity's core attributes, all proposal-relevant facts, and meaningful connections to other entities in the context of government contracting pursuits, RFP responses, and proposal development. Write in third person. Do not add, infer, or generalize facts not present in the input. Avoid descriptive or marketing language. Maximum 2000 words; shorter is acceptable when input is limited.
+
+Return only a plain text summary with no additional explanation, metadata, or formatting.
 
 Entity: {entity}
 Related Semantic Units: {semantic_units}

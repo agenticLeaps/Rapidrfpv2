@@ -140,8 +140,9 @@ def process_document():
         chunks = data["chunks"]
         callback_url = data.get("callback_url")
         use_queue = data.get("use_queue", True)  # Default to queue mode
-        
-        logger.info(f"🚀 NodeRAG processing request: file_id={file_id}, org_id={org_id}, chunks={len(chunks)}, use_queue={use_queue}")
+        environment = data.get("environment", "prod")  # Environment for routing (dev/prod)
+
+        logger.info(f"🚀 NodeRAG processing request: file_id={file_id}, org_id={org_id}, chunks={len(chunks)}, use_queue={use_queue}, env={environment}")
         
         if use_queue:
             # Use Celery queue for memory-efficient processing
@@ -434,8 +435,9 @@ def generate_response():
         max_tokens = data.get("max_tokens", 2048)
         temperature = data.get("temperature", 0.7)
         conversation_history = data.get("conversation_history", "")
-        
-        logger.info(f"🔍 NodeRAG query request: org_id={org_id}, query='{query[:100]}...'")
+        environment = data.get("environment", "prod")  # Environment for routing (dev/prod)
+
+        logger.info(f"🔍 NodeRAG query request: org_id={org_id}, query='{query[:100]}...', env={environment}")
         
         # Check if org has any data by loading org graph first
         storage = noderag_service.get_neon_storage()
@@ -513,8 +515,9 @@ def delete_embeddings():
         
         org_id = data["org_id"]
         file_id = data.get("file_id")  # Optional - if not provided, delete all org embeddings
-        
-        logger.info(f"🗑️ Delete request: org_id={org_id}, file_id={file_id}")
+        environment = data.get("environment", "prod")  # Environment for routing (dev/prod)
+
+        logger.info(f"🗑️ Delete request: org_id={org_id}, file_id={file_id}, env={environment}")
         
         # Get storage service
         storage = noderag_service.get_neon_storage()

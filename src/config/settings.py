@@ -96,3 +96,14 @@ class Config:
     API_HOST = get_config_value("API_HOST", "0.0.0.0")
     API_PORT = get_int_config("API_PORT", 5001)
     API_DEBUG = get_bool_config("API_DEBUG", True)
+
+    # AI Server URLs by environment (for callbacks from NodeRAG to RapidRFPAI)
+    AI_SERVER_URLS = {
+        "dev": "https://ai-dev.rapidrfp.ai",
+        "prod": "https://ai-prod.rapidrfp.ai"
+    }
+
+    @classmethod
+    def get_ai_server_url(cls, environment: str = "prod") -> str:
+        """Get the AI server URL for the given environment."""
+        return cls.AI_SERVER_URLS.get(environment, cls.AI_SERVER_URLS["prod"])
