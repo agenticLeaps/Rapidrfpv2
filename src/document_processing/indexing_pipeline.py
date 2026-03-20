@@ -512,12 +512,17 @@ class IndexingPipeline:
         
         return self.graph_manager.load_graph(filepath)
     
-    def _phase_3_embedding_generation(self) -> Dict[str, Any]:
-        """Phase III: Generate embeddings for all nodes (Database-only storage)."""
-        logger.info("Starting Phase III: Embedding Generation (Database-only mode)")
-        
-        # Skip HNSW for production - using database-first architecture
-        logger.info("HNSW disk storage disabled for production - using database-only storage")
+    def _phase_3_embedding_generation(self, skip_storage: bool = True) -> Dict[str, Any]:
+        """Phase III: Generate embeddings for all nodes.
+
+        Args:
+            skip_storage: If True, returns embeddings in result for callback instead of storing.
+                         This allows RapidRFPAI to handle storage based on environment.
+        """
+        logger.info("Starting Phase III: Embedding Generation")
+
+        if skip_storage:
+            logger.info("Storage skipped - embeddings will be returned for callback")
         
         try:
             # Get all nodes that need embeddings
@@ -561,101 +566,69 @@ class IndexingPipeline:
             
             logger.info(f"✅ Updated {embeddings_generated} nodes with embeddings (database-only mode)")
             
-            # Store embeddings in database
+            # Prepare embedding data
+            embedding_data = []
+            if embeddings_generated > 0:
+                logger.info(f"Preparing {embeddings_generated} embeddings")
+
+                for i, (node, embedding) in enumerate(zip(all_nodes, embeddings)):
+                    if embedding is not None and len(embedding) > 0:
+                        embedding_data.append({
+                            'node_id': node.id,
+                            'node_type': node.type.value,
+                            'content': node.content,
+                            'embedding': embedding,
+                            'metadata': node.metadata,
+                            'chunk_index': node.metadata.get('chunk_index', 0)
+                        })
+
+                logger.info(f"📊 Prepared {len(embedding_data)} embedding records")
+
+            # If skip_storage is True, return embeddings for callback (stateless mode)
+            if skip_storage:
+                logger.info(f"Phase III completed: {embeddings_generated} embeddings generated (returning for callback)")
+                return {
+                    'success': True,
+                    'embeddings_generated': embeddings_generated,
+                    'embedding_data': embedding_data,  # Return for callback
+                    'storage_mode': 'callback'
+                }
+
+            # Otherwise store directly (legacy mode)
             try:
-                if embeddings_generated > 0:
-                    logger.info(f"Storing {embeddings_generated} embeddings in database")
-                    
-                    # Prepare embedding data for bulk storage
-                    embedding_data = []
-                    for i, (node, embedding) in enumerate(zip(all_nodes, embeddings)):
-                        if embedding is not None and len(embedding) > 0:  # Check the actual embedding, not node.embeddings
-                            embedding_data.append({
-                                'node_id': node.id,
-                                'node_type': node.type.value,
-                                'content': node.content,
-                                'embedding': embedding,  # Use the embedding from the array, not node.embeddings
-                                'metadata': node.metadata,
-                                'chunk_index': node.metadata.get('chunk_index', 0)
-                            })
-                    
-                    logger.info(f"📊 Prepared {len(embedding_data)} embedding records for storage")
-                    
-                    if embedding_data:
-                        # Check if we have org/file context
-                        if hasattr(self, 'current_org_id') and hasattr(self, 'current_file_id'):
-                            logger.info(f"🔧 Using incremental context: org_id={self.current_org_id}, file_id={self.current_file_id}")
-                            
-                            # Get storage service and store embeddings
-                            from src.storage.neon_storage import NeonDBStorage
-                            storage = NeonDBStorage()
-                            
-                            # Get user_id from node metadata (all nodes should have same user_id)
-                            user_id = 'unknown'
-                            if embedding_data and embedding_data[0].get('metadata'):
-                                user_id = embedding_data[0]['metadata'].get('user_id', 'unknown')
-                            
-                            logger.info(f"🗄️ Calling bulk_store_embeddings with {len(embedding_data)} items...")
-                            
-                            storage_result = storage.bulk_store_embeddings(
-                                org_id=self.current_org_id,
-                                file_id=self.current_file_id,
-                                user_id=user_id,
-                                embedding_data=embedding_data
-                            )
-                            
-                            logger.info(f"📤 Storage result: {storage_result}")
-                            
-                            if storage_result.get('success'):
-                                logger.info(f"✅ Stored {storage_result.get('stored_count', 0)} embeddings in database")
-                            else:
-                                logger.error(f"❌ Failed to store embeddings in database: {storage_result.get('error')}")
+                if embedding_data:
+                    if hasattr(self, 'current_org_id') and hasattr(self, 'current_file_id'):
+                        logger.info(f"🔧 Using incremental context: org_id={self.current_org_id}, file_id={self.current_file_id}")
+
+                        from src.storage.neon_storage import NeonDBStorage
+                        storage = NeonDBStorage()
+
+                        user_id = 'unknown'
+                        if embedding_data and embedding_data[0].get('metadata'):
+                            user_id = embedding_data[0]['metadata'].get('user_id', 'unknown')
+
+                        storage_result = storage.bulk_store_embeddings(
+                            org_id=self.current_org_id,
+                            file_id=self.current_file_id,
+                            user_id=user_id,
+                            embedding_data=embedding_data
+                        )
+
+                        if storage_result.get('success'):
+                            logger.info(f"✅ Stored {storage_result.get('stored_count', 0)} embeddings in database")
                         else:
-                            logger.info("🔧 No incremental context, checking node metadata...")
-                            
-                            # For non-incremental mode, we can still store using default values from first node
-                            if embedding_data and embedding_data[0].get('metadata'):
-                                node_metadata = embedding_data[0]['metadata']
-                                org_id = node_metadata.get('org_id')
-                                file_id = node_metadata.get('file_id') 
-                                user_id = node_metadata.get('user_id', 'unknown')
-                                
-                                logger.info(f"🔍 Node metadata: org_id={org_id}, file_id={file_id}, user_id={user_id}")
-                                
-                                if org_id and file_id:
-                                    from src.storage.neon_storage import NeonDBStorage
-                                    storage = NeonDBStorage()
-                                    
-                                    logger.info(f"🗄️ Calling bulk_store_embeddings (from metadata) with {len(embedding_data)} items...")
-                                    
-                                    storage_result = storage.bulk_store_embeddings(
-                                        org_id=org_id,
-                                        file_id=file_id,
-                                        user_id=user_id,
-                                        embedding_data=embedding_data
-                                    )
-                                    
-                                    logger.info(f"📤 Storage result (from metadata): {storage_result}")
-                                    
-                                    if storage_result.get('success'):
-                                        logger.info(f"✅ Stored {storage_result.get('stored_count', 0)} embeddings in database (from node metadata)")
-                                    else:
-                                        logger.error(f"❌ Failed to store embeddings in database: {storage_result.get('error')}")
-                                else:
-                                    logger.warning(f"❌ Missing org_id/file_id in node metadata, skipping database storage")
-                            else:
-                                logger.warning(f"❌ No embedding data or metadata available for database storage")
-                            
+                            logger.error(f"❌ Failed to store embeddings: {storage_result.get('error')}")
+
             except Exception as e:
                 logger.warning(f"Failed to store embeddings in database: {e}")
-            
+
             logger.info(f"Phase III completed: {embeddings_generated} embeddings generated and indexed")
-            
+
             return {
                 'success': True,
                 'embeddings_generated': embeddings_generated,
                 'database_stored': embeddings_generated,
-                'storage_mode': 'database_only'
+                'storage_mode': 'database'
             }
             
         except Exception as e:

@@ -62,16 +62,82 @@ def run_async_safe(coro):
         return future.result(timeout=120)  # 2 minute timeout
 
 class NeonDBStorage:
-    def __init__(self):
+    """
+    NeonDB Storage for NodeRAG.
+
+    NOTE: In stateless mode (skip_storage=True), embeddings are returned via callback
+    to RapidRFPAI which handles storage. This class is kept for backward compatibility
+    and search functionality.
+    """
+
+    def __init__(self, required: bool = False):
+        """
+        Initialize NeonDB storage.
+
+        Args:
+            required: If True, raises error if NEON_DATABASE_URL not found.
+                     If False (default), operates in stateless mode.
+        """
         self.db_url = os.getenv("NEON_DATABASE_URL")
+        self._stateless_mode = False
+
+        # If not set locally, fetch from RapidRFPAI
         if not self.db_url:
-            raise ValueError("NEON_DATABASE_URL environment variable not found")
-        
-        self.llm_service = LLMService()
+            self.db_url = self._fetch_db_url_from_rapidrfpai()
+
+        if not self.db_url:
+            if required:
+                raise ValueError("NEON_DATABASE_URL environment variable not found and could not fetch from RapidRFPAI")
+            else:
+                logger.warning("⚠️ NEON_DATABASE_URL not found - running in stateless mode (embeddings returned via callback)")
+                self._stateless_mode = True
+
+        self.llm_service = None  # Lazy init to avoid circular imports
         self._connection_pool = None
+
+    def _fetch_db_url_from_rapidrfpai(self):
+        """Fetch DATABASE_URL from RapidRFPAI internal config API"""
+        import requests
+
+        # Get RapidRFPAI URL from env or use default
+        rapidrfpai_url = os.getenv("RAPIDRFPAI_URL", "http://localhost:8002")
+        internal_key = os.getenv("INTERNAL_API_KEY", "rapidrfp-internal-2024")
+
+        try:
+            response = requests.get(
+                f"{rapidrfpai_url}/api/internal/config",
+                headers={"X-Internal-Key": internal_key},
+                timeout=5
+            )
+            if response.status_code == 200:
+                config = response.json()
+                db_url = config.get("database_url")
+                if db_url:
+                    logger.info(f"✅ Fetched DATABASE_URL from RapidRFPAI")
+                    return db_url
+            else:
+                logger.warning(f"⚠️ Failed to fetch config from RapidRFPAI: {response.status_code}")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not connect to RapidRFPAI for config: {e}")
+
+        return None
+
+    def _get_llm_service(self):
+        """Lazy initialization of LLM service"""
+        if self.llm_service is None:
+            self.llm_service = LLMService()
+        return self.llm_service
+
+    @property
+    def is_stateless(self):
+        """Check if running in stateless mode (no database)"""
+        return self._stateless_mode
         
     async def _get_connection_pool(self):
         """Get or create database connection pool"""
+        if self._stateless_mode:
+            raise RuntimeError("Database not available in stateless mode")
+
         if self._connection_pool is None or self._connection_pool.is_closing():
             # Close existing pool if it's in a bad state
             if self._connection_pool and not self._connection_pool.is_closing():
@@ -133,7 +199,7 @@ class NeonDBStorage:
                     node_id VARCHAR(255) UNIQUE NOT NULL,
                     node_type VARCHAR(50) NOT NULL,
                     content TEXT NOT NULL,
-                    embedding vector(1536),
+                    embedding vector(1024),
                     org_id VARCHAR(255) NOT NULL,
                     file_id VARCHAR(255) NOT NULL,
                     user_id VARCHAR(255) NOT NULL,
@@ -247,6 +313,14 @@ class NeonDBStorage:
     
     def store_noderag_data(self, org_id: str, file_id: str, user_id: str, pipeline) -> Dict[str, Any]:
         """Store NodeRAG graph and embeddings data"""
+        if self._stateless_mode:
+            logger.warning("store_noderag_data called in stateless mode - data should be returned via callback")
+            return {
+                "success": False,
+                "error": "Running in stateless mode - use callback for data storage",
+                "embeddings_stored": 0,
+                "graphs_stored": 0
+            }
         return asyncio.run(self._store_noderag_data_async(org_id, file_id, user_id, pipeline))
     
     async def _store_noderag_data_async(self, org_id: str, file_id: str, user_id: str, pipeline) -> Dict[str, Any]:
@@ -404,11 +478,15 @@ class NeonDBStorage:
     
     async def _search_noderag_data_async(self, org_id: str, query: str, top_k: int = 10, filters: Dict = None) -> List[Dict]:
         """Async implementation of search_noderag_data with optimized connection pooling"""
+        if self._stateless_mode:
+            logger.warning("Search called in stateless mode - no database available")
+            return []
+
         search_start = time.time()
-        
+
         try:
             # Generate query embedding
-            query_embeddings = self.llm_service.get_embeddings([query])
+            query_embeddings = self._get_llm_service().get_embeddings([query])
             if not query_embeddings:
                 return []
             
@@ -1034,14 +1112,17 @@ class NeonDBStorage:
     
     def _get_sync_connection(self):
         """Get synchronous database connection using psycopg2"""
+        if self._stateless_mode:
+            raise RuntimeError("Database not available in stateless mode")
+
         if not PSYCOPG2_AVAILABLE:
             raise ImportError("psycopg2 not available for sync operations")
-        
+
         # Convert asyncpg URL to psycopg2 format
         db_url = self.db_url
         if db_url.startswith('postgresql://'):
             db_url = db_url.replace('postgresql://', 'postgres://')
-        
+
         return psycopg2.connect(db_url)
     
     def load_org_graph_sync(self, org_id: str) -> Optional[Dict]:

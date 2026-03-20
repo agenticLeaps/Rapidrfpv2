@@ -1658,55 +1658,57 @@ def _process_document_background(file_id, chunks_data, session_id, user_id, call
         if not augmentation_result.get('success'):
             logger.warning(f"Phase 2 partial failure: {augmentation_result}")
 
-        embedding_result = indexing_pipeline._phase_3_embedding_generation()
+        # Phase 3 with skip_storage=True to return embeddings for callback
+        embedding_result = indexing_pipeline._phase_3_embedding_generation(skip_storage=True)
         if not embedding_result.get('success'):
             logger.warning(f"Phase 3 partial failure: {embedding_result}")
 
-        # Store graph in database (not just pickle file)
+        # Get embedding data for callback (stateless mode)
+        embedding_data = embedding_result.get('embedding_data', [])
+
+        # Prepare graph data for callback (stateless mode - no local storage)
         import pickle
-        from ..storage.neon_storage import NeonDBStorage
+        import base64
 
+        graph_stats = {
+            'total_nodes': indexing_pipeline.graph_manager.graph.number_of_nodes() if indexing_pipeline.graph_manager.graph else 0,
+            'total_edges': indexing_pipeline.graph_manager.graph.number_of_edges() if indexing_pipeline.graph_manager.graph else 0,
+            'chunks_processed': len(document_chunks),
+            'file_id': file_id,
+        }
+
+        # Serialize graph for callback (base64 encoded pickle)
         try:
-            storage = NeonDBStorage()
-
-            # Serialize graph data
-            graph_data = pickle.dumps({
+            graph_pickle = pickle.dumps({
                 'graph': indexing_pipeline.graph_manager.graph,
                 'entity_index': dict(indexing_pipeline.graph_manager.entity_index),
                 'community_assignments': indexing_pipeline.graph_manager.community_assignments
             })
-
-            # Get stats
-            graph_stats = {
-                'total_nodes': indexing_pipeline.graph_manager.graph.number_of_nodes() if indexing_pipeline.graph_manager.graph else 0,
-                'total_edges': indexing_pipeline.graph_manager.graph.number_of_edges() if indexing_pipeline.graph_manager.graph else 0,
-                'chunks_processed': len(document_chunks),
-                'file_id': file_id,
-            }
-
-            # Store to database
-            storage_result = storage.store_org_graph_sync(
-                org_id=session_id,
-                graph_data=graph_data,
-                processed_files=[file_id],
-                version=1,
-                last_file_added=file_id,
-                stats=graph_stats,
-                user_id=user_id
-            )
-
-            if storage_result.get('success'):
-                logger.info(f"✅ Graph stored in database for org={session_id}, file={file_id}")
-                save_success = True
-            else:
-                logger.warning(f"⚠️ Graph DB storage failed: {storage_result.get('error')}, falling back to file")
-                save_success = indexing_pipeline.save_graph()
-
-        except Exception as graph_err:
-            logger.warning(f"⚠️ Graph DB storage error: {graph_err}, falling back to file")
-            save_success = indexing_pipeline.save_graph()
+            graph_data_b64 = base64.b64encode(graph_pickle).decode('utf-8')
+            logger.info(f"📦 Serialized graph data: {len(graph_data_b64)} bytes (base64)")
+        except Exception as e:
+            logger.warning(f"Failed to serialize graph: {e}")
+            graph_data_b64 = None
 
         processing_time = time.time() - start_time
+
+        # Prepare embeddings for callback (convert numpy arrays and sets to JSON-serializable types)
+        callback_embeddings = []
+        for emb in embedding_data:
+            emb_copy = emb.copy()
+            # Convert embedding to list if it's a numpy array
+            if hasattr(emb_copy.get('embedding'), 'tolist'):
+                emb_copy['embedding'] = emb_copy['embedding'].tolist()
+            # Convert metadata sets to lists for JSON serialization
+            if 'metadata' in emb_copy and emb_copy['metadata']:
+                metadata_copy = emb_copy['metadata'].copy()
+                for key, value in metadata_copy.items():
+                    if isinstance(value, set):
+                        metadata_copy[key] = list(value)
+                emb_copy['metadata'] = metadata_copy
+            callback_embeddings.append(emb_copy)
+
+        logger.info(f"📤 Prepared {len(callback_embeddings)} embeddings for callback")
 
         result_data = {
             "file_id": file_id,
@@ -1715,25 +1717,37 @@ def _process_document_background(file_id, chunks_data, session_id, user_id, call
             "chunks_processed": len(document_chunks),
             "total_chunks": len(chunks_data),
             "page_count": page_count,
-            "graph_saved": save_success,
             "session_id": session_id,
+            "graph_stats": graph_stats,
+            "graph_data": graph_data_b64,  # Base64 encoded pickle
+            "embeddings": callback_embeddings,  # NodeRAG embeddings for RapidRFPAI to store
+            "embeddings_count": len(callback_embeddings),
             "processing_time": round(processing_time, 2)
         }
 
         logger.info(f"✅ Background processing completed: file_id={file_id} in {processing_time:.2f}s")
 
         # Send callback with expected format (status at top level, details in data)
+        # Use fire-and-forget approach - don't wait for response
         if callback_url:
-            try:
-                callback_payload = {
-                    "status": "completed",
-                    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                    "data": result_data
-                }
-                req_lib.post(callback_url, json=callback_payload, timeout=10)
-                logger.info(f"✅ Callback sent to {callback_url}")
-            except Exception as cb_error:
-                logger.warning(f"Callback failed: {cb_error}")
+            def send_callback():
+                try:
+                    callback_payload = {
+                        "status": "completed",
+                        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                        "data": result_data
+                    }
+                    # Use short connect timeout but no read timeout (fire and forget)
+                    req_lib.post(callback_url, json=callback_payload, timeout=(5, None))
+                    logger.info(f"✅ Callback sent to {callback_url}")
+                except Exception as cb_error:
+                    logger.warning(f"Callback failed: {cb_error}")
+
+            # Send callback in background thread (non-blocking)
+            import threading
+            callback_thread = threading.Thread(target=send_callback, daemon=True)
+            callback_thread.start()
+            logger.info(f"📤 Callback dispatched to {callback_url} (async)")
 
     except Exception as e:
         logger.error(f"❌ Background processing error: {e}")
@@ -1921,11 +1935,23 @@ def v1_generate_response():
                 # Similarity scores are typically cosine similarity (0-1), so use directly
                 confidence = min(avg_similarity, 1.0)
 
+        # Sanitize sources to convert sets to lists for JSON serialization
+        def sanitize_for_json(obj):
+            if isinstance(obj, set):
+                return list(obj)
+            elif isinstance(obj, dict):
+                return {k: sanitize_for_json(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [sanitize_for_json(item) for item in obj]
+            return obj
+
+        sanitized_sources = sanitize_for_json(sources[:5])
+
         response = {
             "success": True,
             "query": query,
             "response": response_text,
-            "sources": sources[:5],
+            "sources": sanitized_sources,
             "confidence": confidence,  # Added confidence score
             "session_id": session_id,
             "retrieval_stats": {

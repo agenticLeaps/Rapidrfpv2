@@ -29,33 +29,15 @@ except ImportError:
         return str(value).lower() in ('true', '1', 'yes', 'on')
 
 class Config:
-    # LLM Provider Settings
-    LLM_PROVIDER = get_config_value("LLM_PROVIDER", "gemini")  # "openai" or "gemini"
-    
-    # OpenAI API Settings (for LLM)
-    OPENAI_API_KEY = get_config_value("OPENAI_API_KEY", "")
-    
-    # Gemini API Settings (for LLM)
-    GEMINI_API_KEY = get_config_value("GEMINI_API_KEY", "") or get_config_value("GOOGLE_API_KEY", "")
-    GEMINI_MODEL = get_config_value("GEMINI_MODEL", "gemini-2.5-flash-lite")
-    GEMINI_PROJECT_ID = get_config_value("GEMINI_PROJECT_ID", "")
-    GEMINI_LOCATION = get_config_value("GEMINI_LOCATION", "global")
-    
-    # LlamaParse API Settings
+    # AWS Bedrock Settings
+    AWS_REGION = get_config_value("AWS_REGION", "us-east-1")
+    BEDROCK_LLM_MODEL = get_config_value("BEDROCK_LLM_MODEL", "anthropic.claude-sonnet-4-20250514-v1:0")
+    BEDROCK_EMBEDDING_MODEL = get_config_value("BEDROCK_EMBEDDING_MODEL", "cohere.embed-english-v3")
+    EMBEDDING_DIMENSION = get_int_config("EMBEDDING_DIMENSION", 1024)  # Cohere embed dimension
+
+    # Document Parsing Settings (LlamaParse disabled - using Docling via RapidRFPAI)
+    USE_LLAMAPARSE = get_bool_config("USE_LLAMAPARSE", False)  # Disabled - chunks come pre-parsed from RapidRFPAI/Docling
     LLAMA_CLOUD_API_KEY = get_config_value("LLAMA_CLOUD_API_KEY", "")
-    USE_LLAMAPARSE = get_bool_config("USE_LLAMAPARSE", True)
-    LLAMAPARSE_RESULT_TYPE = get_config_value("LLAMAPARSE_RESULT_TYPE", "markdown")
-    LLAMAPARSE_LANGUAGE = get_config_value("LLAMAPARSE_LANGUAGE", "en")
-    LLAMAPARSE_NUM_WORKERS = get_int_config("LLAMAPARSE_NUM_WORKERS", 1)
-    LLAMAPARSE_MAX_WAIT_TIME = get_int_config("LLAMAPARSE_MAX_WAIT_TIME", 300)
-    LLAMAPARSE_POLL_INTERVAL = get_int_config("LLAMAPARSE_POLL_INTERVAL", 5)
-    LLAMAPARSE_PARSING_METHOD = get_config_value("LLAMAPARSE_PARSING_METHOD", "job_monitoring")  # sync, async, job_monitoring
-    
-    # HuggingFace Embedding Endpoint
-    QWEN_EMBEDDING_ENDPOINT = get_config_value("QWEN_EMBEDDING_ENDPOINT", "mahendraVarmaGokaraju/qwen3-embeddings")
-    HF_CLIENT_TIMEOUT = get_int_config("HF_CLIENT_TIMEOUT", 30)
-    HF_CLIENT_CONNECT_TIMEOUT = get_int_config("HF_CLIENT_CONNECT_TIMEOUT", 10)
-    HF_CLIENT_MAX_RETRIES = get_int_config("HF_CLIENT_MAX_RETRIES", 3)
     
     # Document Processing Settings (Optimized for speed)
     CHUNK_SIZE = get_int_config("CHUNK_SIZE", 1536)  # Increased from 512 for 3x fewer chunks
@@ -84,8 +66,8 @@ class Config:
     PARALLEL_EMBEDDING_BATCH = get_int_config("PARALLEL_EMBEDDING_BATCH", 16)  # Batch embeddings
     ENABLE_PARALLEL_PROCESSING = get_bool_config("ENABLE_PARALLEL_PROCESSING", True)  # Enable parallel chunk processing
     
-    # Embedding Optimization
-    USE_OPENAI_EMBEDDINGS_ONLY = get_bool_config("USE_OPENAI_EMBEDDINGS_ONLY", False)  # Skip HF embeddings
+    # Embedding Settings (Bedrock Cohere)
+    EMBEDDING_BATCH_SIZE = get_int_config("EMBEDDING_BATCH_SIZE", 96)  # Cohere max batch size
     
     # Storage
     DATA_DIR = get_config_value("DATA_DIR", "data")
@@ -94,7 +76,7 @@ class Config:
     HNSW_INDEX_PATH = get_config_value("HNSW_INDEX_PATH", "data/processed/hnsw_index")
     
     # HNSW Settings
-    HNSW_DIMENSION = get_int_config("HNSW_DIMENSION", 1536)  # Default embedding dimension (OpenAI/HF compatible)
+    HNSW_DIMENSION = get_int_config("HNSW_DIMENSION", 1024)  # Cohere embed-english-v3 dimension
     HNSW_MAX_ELEMENTS = get_int_config("HNSW_MAX_ELEMENTS", 100000)
     HNSW_EF_CONSTRUCTION = get_int_config("HNSW_EF_CONSTRUCTION", 200)
     HNSW_M = get_int_config("HNSW_M", 50)

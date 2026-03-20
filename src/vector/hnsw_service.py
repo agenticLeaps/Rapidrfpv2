@@ -36,8 +36,8 @@ class HNSWService:
     Implements fast approximate nearest neighbor search for node embeddings.
     """
     
-    def __init__(self, 
-                 dimension: int = 1536,  # OpenAI embedding dimension
+    def __init__(self,
+                 dimension: int = 1024,  # Cohere embed-english-v3 dimension
                  max_elements: int = 100000,
                  ef_construction: int = 200,
                  m: int = 50,
